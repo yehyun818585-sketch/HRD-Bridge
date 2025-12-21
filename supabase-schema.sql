@@ -85,6 +85,14 @@ CREATE POLICY "댓글 조회" ON comments
 CREATE POLICY "댓글 작성" ON comments
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+-- 댓글: 본인 댓글만 수정 가능
+CREATE POLICY "본인 댓글 수정" ON comments
+  FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+
+-- 댓글: 본인 댓글만 삭제 가능
+CREATE POLICY "본인 댓글 삭제" ON comments
+  FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
 -- =============================================
 -- 새 사용자 가입 시 프로필 자동 생성
 -- =============================================

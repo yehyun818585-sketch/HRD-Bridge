@@ -21,6 +21,8 @@ export default function CommentSection({ courseId }: CommentSectionProps) {
   const [newComment, setNewComment] = useState('')
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<{ id: string } | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
   const supabase = createClient()
 
   useEffect(() => {
@@ -133,6 +135,48 @@ export default function CommentSection({ courseId }: CommentSectionProps) {
     return <span className="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">기업</span>
   }
 
+  const handleDelete = async (commentId: string) => {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return
+
+    const { error } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', commentId)
+
+    if (!error) {
+      setComments((prev) => prev.filter((c) => c.id !== commentId))
+    }
+  }
+
+  const handleEdit = (comment: Comment) => {
+    setEditingId(comment.id)
+    setEditContent(comment.content)
+  }
+
+  const handleEditSubmit = async (commentId: string) => {
+    if (!editContent.trim()) return
+
+    const { error } = await supabase
+      .from('comments')
+      .update({ content: editContent.trim() })
+      .eq('id', commentId)
+
+    if (!error) {
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === commentId ? { ...c, content: editContent.trim() } : c
+        )
+      )
+      setEditingId(null)
+      setEditContent('')
+    }
+  }
+
+  const handleEditCancel = () => {
+    setEditingId(null)
+    setEditContent('')
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -163,8 +207,47 @@ export default function CommentSection({ courseId }: CommentSectionProps) {
                   <span className="text-xs text-gray-400">
                     {formatDate(comment.created_at)}
                   </span>
+                  {user && user.id === comment.user_id && (
+                    <div className="flex gap-1 ml-auto">
+                      <button
+                        onClick={() => handleEdit(comment)}
+                        className="text-xs text-blue-500 hover:text-blue-700"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => handleDelete(comment.id)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <p className="text-gray-700">{comment.content}</p>
+                {editingId === comment.id ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={() => handleEditSubmit(comment.id)}
+                      className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      저장
+                    </button>
+                    <button
+                      onClick={handleEditCancel}
+                      className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                    >
+                      취소
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-gray-700">{comment.content}</p>
+                )}
               </div>
             </div>
           ))
