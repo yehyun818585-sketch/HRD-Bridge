@@ -62,6 +62,35 @@ export default async function CompaniesPage() {
 
   return (
     <div className="space-y-6">
+      {/* 담당자 정보 카드 */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-blue-600 font-medium">한국산업인력공단 담당자</p>
+            <p className="text-lg font-semibold text-gray-900">김철수</p>
+          </div>
+          <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2 text-gray-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              <span>052-714-8114</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span>chulsoo.kim@hrdkorea.or.kr</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">기업 현황</h1>
         <p className="text-gray-500">총 {companies?.length || 0}개 기업</p>

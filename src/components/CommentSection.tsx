@@ -14,15 +14,49 @@ interface Comment {
 
 interface CommentSectionProps {
   courseId: string
+  courseName?: string
+  hasStaffIssue?: boolean // 전담인력 이슈 여부
 }
 
-export default function CommentSection({ courseId }: CommentSectionProps) {
+// 댓글 분석 함수 - 기업 댓글이 질의인지 조치완료인지 판단
+const analyzeComment = (content: string): { type: 'query' | 'action_complete' | 'other', notification: string } => {
+  const lowerContent = content.toLowerCase()
+
+  // 조치 완료 관련 키워드
+  const actionCompleteKeywords = ['완료', '제출', '첨부', '등록', '처리', '수정', '보완', '업로드', '했습니다', '드렸습니다', '하였습니다']
+  // 질의 관련 키워드
+  const queryKeywords = ['?', '어떻게', '언제', '무엇', '왜', '어디', '문의', '질문', '확인', '알려', '가능한가요', '될까요', '할까요', '인가요']
+
+  const isActionComplete = actionCompleteKeywords.some(keyword => content.includes(keyword))
+  const isQuery = queryKeywords.some(keyword => lowerContent.includes(keyword))
+
+  if (isActionComplete && !isQuery) {
+    return {
+      type: 'action_complete',
+      notification: `[조치완료 알림] 기업에서 요청사항을 처리했습니다: "${content.slice(0, 50)}${content.length > 50 ? '...' : ''}"`
+    }
+  } else if (isQuery) {
+    return {
+      type: 'query',
+      notification: `[문의 알림] 기업에서 문의가 접수되었습니다: "${content.slice(0, 50)}${content.length > 50 ? '...' : ''}"`
+    }
+  } else {
+    return {
+      type: 'other',
+      notification: `[새 댓글] 기업에서 댓글을 남겼습니다: "${content.slice(0, 50)}${content.length > 50 ? '...' : ''}"`
+    }
+  }
+}
+
+export default function CommentSection({ courseId, courseName, hasStaffIssue }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<{ id: string } | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
+  const [notification, setNotification] = useState<{ type: string, message: string } | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -58,6 +92,15 @@ export default function CommentSection({ courseId }: CommentSectionProps) {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+        setUserRole(profile?.role || null)
+      }
     }
 
     fetchComments()
@@ -82,7 +125,7 @@ export default function CommentSection({ courseId }: CommentSectionProps) {
             .eq('id', payload.new.user_id)
             .single()
 
-          const newComment: Comment = {
+          const newCommentData: Comment = {
             id: payload.new.id,
             content: payload.new.content,
             created_at: payload.new.created_at,
@@ -91,7 +134,18 @@ export default function CommentSection({ courseId }: CommentSectionProps) {
             user_role: profile?.role || null,
           }
 
-          setComments((prev) => [...prev, newComment])
+          setComments((prev) => [...prev, newCommentData])
+
+          // 기업 댓글인 경우, 센터 사용자에게 알림 표시
+          if (profile?.role === 'company' && userRole === 'center') {
+            const analysis = analyzeComment(payload.new.content)
+            setNotification({
+              type: analysis.type,
+              message: analysis.notification
+            })
+            // 10초 후 알림 자동 제거
+            setTimeout(() => setNotification(null), 10000)
+          }
         }
       )
       .subscribe()
@@ -106,13 +160,29 @@ export default function CommentSection({ courseId }: CommentSectionProps) {
     if (!newComment.trim() || !user) return
 
     setLoading(true)
-    const { error } = await supabase.from('comments').insert({
+    const { data, error } = await supabase.from('comments').insert({
       course_id: courseId,
       user_id: user.id,
       content: newComment.trim(),
-    })
+    }).select().single()
 
-    if (!error) {
+    if (!error && data) {
+      // 프로필 정보 가져오기
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name, role')
+        .eq('id', user.id)
+        .single()
+
+      const newCommentData: Comment = {
+        id: data.id,
+        content: data.content,
+        created_at: data.created_at,
+        user_id: data.user_id,
+        user_name: profile?.name || null,
+        user_role: profile?.role || null,
+      }
+      setComments((prev) => [...prev, newCommentData])
       setNewComment('')
     }
     setLoading(false)
@@ -177,14 +247,108 @@ export default function CommentSection({ courseId }: CommentSectionProps) {
     setEditContent('')
   }
 
+  // 전담인력 첨부 요청 버튼 클릭
+  const handleStaffRequest = async () => {
+    if (!user) return
+
+    const requestMessage = `[전담인력 서류 첨부 요청] ${courseName || '해당 과정'}의 전담인력 등록 서류를 첨부해주세요. 필요 서류: 전담인력 지정서, 자격증 사본, 경력증명서`
+
+    setLoading(true)
+    const { data, error } = await supabase.from('comments').insert({
+      course_id: courseId,
+      user_id: user.id,
+      content: requestMessage,
+    }).select().single()
+
+    if (!error && data) {
+      // 프로필 정보 가져오기
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name, role')
+        .eq('id', user.id)
+        .single()
+
+      const newCommentData: Comment = {
+        id: data.id,
+        content: data.content,
+        created_at: data.created_at,
+        user_id: data.user_id,
+        user_name: profile?.name || null,
+        user_role: profile?.role || null,
+      }
+      setComments((prev) => [...prev, newCommentData])
+    }
+    setLoading(false)
+  }
+
+  // 알림 닫기
+  const closeNotification = () => {
+    setNotification(null)
+  }
+
+  // 알림 배경색 결정
+  const getNotificationStyle = (type: string) => {
+    switch (type) {
+      case 'action_complete':
+        return 'bg-green-50 border-green-200 text-green-800'
+      case 'query':
+        return 'bg-yellow-50 border-yellow-200 text-yellow-800'
+      default:
+        return 'bg-blue-50 border-blue-200 text-blue-800'
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-        피드백 댓글
-      </h3>
+      {/* 기업 댓글 알림 */}
+      {notification && (
+        <div className={`mb-4 p-3 rounded-lg border flex items-center justify-between ${getNotificationStyle(notification.type)}`}>
+          <div className="flex items-center gap-2">
+            {notification.type === 'action_complete' ? (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            ) : notification.type === 'query' ? (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+              </svg>
+            )}
+            <span className="text-sm font-medium">{notification.message}</span>
+          </div>
+          <button onClick={closeNotification} className="p-1 hover:bg-white/50 rounded">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+          피드백 댓글
+        </h3>
+
+        {/* 전담인력 첨부 요청 버튼 (센터 사용자 + 전담인력 이슈 있을 때만) */}
+        {user && userRole === 'center' && hasStaffIssue && (
+          <button
+            onClick={handleStaffRequest}
+            disabled={loading}
+            className="px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition flex items-center gap-1 disabled:opacity-50"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            첨부 요청
+          </button>
+        )}
+      </div>
 
       {/* 댓글 목록 */}
       <div className="space-y-4 mb-6 max-h-96 overflow-y-auto">
