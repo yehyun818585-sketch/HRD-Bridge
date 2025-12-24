@@ -20,6 +20,76 @@ interface Company {
   courses: Course[]
 }
 
+// PDF 파일 매핑 - 기업명 첫글자와 과정명 키워드로 PDF 파일 경로 결정
+const getPdfFiles = (companyName: string, courseName: string): { businessPlan?: string; staffRegistration?: string } => {
+  const companyPrefix = companyName.charAt(0).toUpperCase() // A, B, C 등
+  const lowerCourseName = courseName.toLowerCase()
+
+  // 키워드 기반 매핑
+  if (companyPrefix === 'A') {
+    if (lowerCourseName.includes('ai') || lowerCourseName.includes('개발자 양성')) {
+      return {
+        businessPlan: '/files/A_AI개발자양성과정_사업계획서.pdf',
+        staffRegistration: '/files/A_AI개발자양성과정_전담인력등록.pdf'
+      }
+    }
+    if (lowerCourseName.includes('웹') || lowerCourseName.includes('웹개발')) {
+      return {
+        businessPlan: '/files/A_웹개발 실무과정_사업계획서.pdf',
+        staffRegistration: '/files/A_웹개발 실무과정_전담인력등록.pdf'
+      }
+    }
+  }
+
+  if (companyPrefix === 'B') {
+    if (lowerCourseName.includes('데이터') || lowerCourseName.includes('분석')) {
+      return {
+        businessPlan: '/files/B_데이터분석 실무_사업계획서.pdf',
+        staffRegistration: '/files/B_전담인력등록.pdf'
+      }
+    }
+    if (lowerCourseName.includes('클라우드') || lowerCourseName.includes('엔지니어')) {
+      return {
+        businessPlan: '/files/B_클라우드 엔지니어 과정_사업계획서.pdf',
+        staffRegistration: '/files/B_전담인력등록.pdf'
+      }
+    }
+  }
+
+  if (companyPrefix === 'C') {
+    if (lowerCourseName.includes('보안') || lowerCourseName.includes('정보보안')) {
+      return {
+        businessPlan: '/files/C_보안전문가 과정_사업계획서.pdf',
+        staffRegistration: '/files/C_정보보안 과정_전담인력등록.pdf'
+      }
+    }
+  }
+
+  return {}
+}
+
+// 전담인력 중복 여부 확인 - 동일 기업 내 여러 과정이 같은 전담인력 파일을 사용하는지 확인
+const checkStaffDuplication = (companyName: string, courses: Course[]): boolean => {
+  // 각 과정의 전담인력 파일 경로 수집
+  const staffFiles: string[] = []
+
+  for (const course of courses) {
+    const pdfFiles = getPdfFiles(companyName, course.name)
+    if (pdfFiles.staffRegistration) {
+      staffFiles.push(pdfFiles.staffRegistration)
+    }
+  }
+
+  // 2개 이상 과정이 있고, 모두 같은 파일을 사용하면 중복
+  if (staffFiles.length >= 2) {
+    const uniqueFiles = new Set(staffFiles)
+    // 파일이 모두 동일하면 중복 (uniqueFiles.size === 1)
+    return uniqueFiles.size < staffFiles.length
+  }
+
+  return false
+}
+
 export default async function CompanyDetailPage({
   params,
   searchParams,
@@ -125,6 +195,23 @@ export default async function CompanyDetailPage({
         {/* 과정 상세 + 댓글 */}
         <div className="lg:col-span-2 space-y-6">
           {selectedCourse ? (
+            (() => {
+              // PDF 파일 정보를 먼저 가져와서 이슈 상태 계산
+              const pdfFiles = getPdfFiles(typedCompany.name, selectedCourse.name)
+              // 전담인력 이슈가 있지만 PDF가 첨부되어 있으면 이슈 해결된 것으로 간주
+              const hasStaffIssueInDB = selectedCourse.issues?.includes('전담인력') || false
+              const isStaffIssueResolved = hasStaffIssueInDB && pdfFiles.staffRegistration
+
+              // 전담인력 중복 여부 체크 (동일 파일이 여러 과정에 사용되는 경우)
+              const hasStaffDuplication = checkStaffDuplication(typedCompany.name, typedCompany.courses)
+
+              // 최종 이슈 결정: 기존 이슈가 해결되었으면 null, 중복이면 "전담인력 중복"
+              let effectiveIssue = isStaffIssueResolved ? null : selectedCourse.issues
+              if (hasStaffDuplication && pdfFiles.staffRegistration) {
+                effectiveIssue = effectiveIssue ? `${effectiveIssue}, 전담인력 중복` : '전담인력 중복'
+              }
+
+              return (
             <>
               {/* 과정 정보 (읽기 전용) */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -153,55 +240,79 @@ export default async function CompanyDetailPage({
                   </div>
                   <div className="p-4 bg-gray-50 rounded-lg md:col-span-2">
                     <p className="text-sm text-gray-500 mb-1">주요 이슈</p>
-                    <p className={`font-medium ${selectedCourse.issues ? 'text-red-600' : 'text-gray-400'}`}>
-                      {selectedCourse.issues || '이슈 없음'}
+                    <p className={`font-medium ${effectiveIssue ? 'text-red-600' : 'text-gray-400'}`}>
+                      {effectiveIssue || '이슈 없음'}
                     </p>
                   </div>
                 </div>
 
                 {/* 체크리스트 */}
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">서류 제출 현황</h3>
-                  <div className="space-y-2">
-                    {/* 사업계획서 */}
-                    <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-gray-700">사업계획서</span>
-                      {selectedCourse.name === 'AI 개발자 양성과정' && (
-                        <>
-                          <span className="text-xs text-green-600 font-medium">첨부됨</span>
-                          <PdfViewerModal pdfUrl="/files/A_AI개발자양성과정_사업계획서.pdf" />
-                        </>
-                      )}
+                {(() => {
+                  return (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">서류 제출 현황</h3>
+                      <div className="space-y-2">
+                        {/* 사업계획서 */}
+                        <div className="flex items-center gap-2">
+                          {pdfFiles.businessPlan ? (
+                            <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                          <span className="text-gray-700">사업계획서</span>
+                          {pdfFiles.businessPlan && (
+                            <>
+                              <span className="text-xs text-green-600 font-medium">첨부됨</span>
+                              <PdfViewerModal pdfUrl={pdfFiles.businessPlan} />
+                            </>
+                          )}
+                        </div>
+                        {/* 전담인력 등록 */}
+                        <div className="flex items-center gap-2">
+                          {pdfFiles.staffRegistration ? (
+                            <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          ) : selectedCourse.issues?.includes('전담인력') ? (
+                            <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                          <span className={selectedCourse.issues?.includes('전담인력') && !pdfFiles.staffRegistration ? 'text-red-600' : 'text-gray-700'}>
+                            전담인력 등록
+                          </span>
+                          {pdfFiles.staffRegistration && (
+                            <>
+                              <span className="text-xs text-green-600 font-medium">첨부됨</span>
+                              <PdfViewerModal pdfUrl={pdfFiles.staffRegistration} />
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    {/* 전담인력 등록 */}
-                    <div className="flex items-center gap-2">
-                      {selectedCourse.issues?.includes('전담인력') ? (
-                        <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                      <span className={selectedCourse.issues?.includes('전담인력') ? 'text-red-600' : 'text-gray-700'}>
-                        전담인력 등록
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                  )
+                })()}
               </div>
 
               {/* 댓글 섹션 */}
               <CommentSection
                 courseId={selectedCourse.id}
                 courseName={selectedCourse.name}
-                hasStaffIssue={selectedCourse.issues?.includes('전담인력') || false}
+                hasStaffIssue={hasStaffIssueInDB && !pdfFiles.staffRegistration}
+                companyName={typedCompany.name}
+                totalCoursesInCompany={typedCompany.courses.length}
               />
             </>
+              )
+            })()
           ) : (
             <div className="text-center py-12 text-gray-500">
               과정을 선택해주세요.

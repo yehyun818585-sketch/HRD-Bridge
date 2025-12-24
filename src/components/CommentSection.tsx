@@ -16,6 +16,8 @@ interface CommentSectionProps {
   courseId: string
   courseName?: string
   hasStaffIssue?: boolean // 전담인력 이슈 여부
+  companyName?: string // 기업명
+  totalCoursesInCompany?: number // 해당 기업의 총 과정 수
 }
 
 // 댓글 분석 함수 - 기업 댓글이 질의인지 조치완료인지 판단
@@ -48,7 +50,7 @@ const analyzeComment = (content: string): { type: 'query' | 'action_complete' | 
   }
 }
 
-export default function CommentSection({ courseId, courseName, hasStaffIssue }: CommentSectionProps) {
+export default function CommentSection({ courseId, courseName, hasStaffIssue, companyName, totalCoursesInCompany }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
   const [loading, setLoading] = useState(false)
@@ -281,6 +283,40 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue }: 
     setLoading(false)
   }
 
+  // 전담인력 중복 확인 요청 버튼 클릭
+  const handleStaffDuplicationCheck = async () => {
+    if (!user) return
+
+    const requestMessage = `[전담인력 담당자 확인 요청] ${companyName || '귀사'}에서 운영 중인 여러 과정의 전담인력 담당자가 동일인으로 등록되어 있습니다. 해당 담당자가 복수 과정을 담당하는 것이 맞는지 확인 부탁드립니다. 다른 담당자로 변경이 필요한 경우 수정된 전담인력 등록서류를 첨부해주세요.`
+
+    setLoading(true)
+    const { data, error } = await supabase.from('comments').insert({
+      course_id: courseId,
+      user_id: user.id,
+      content: requestMessage,
+    }).select().single()
+
+    if (!error && data) {
+      // 프로필 정보 가져오기
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name, role')
+        .eq('id', user.id)
+        .single()
+
+      const newCommentData: Comment = {
+        id: data.id,
+        content: data.content,
+        created_at: data.created_at,
+        user_id: data.user_id,
+        user_name: profile?.name || null,
+        user_role: profile?.role || null,
+      }
+      setComments((prev) => [...prev, newCommentData])
+    }
+    setLoading(false)
+  }
+
   // 알림 닫기
   const closeNotification = () => {
     setNotification(null)
@@ -335,19 +371,35 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue }: 
           피드백 댓글
         </h3>
 
-        {/* 전담인력 첨부 요청 버튼 (센터 사용자 + 전담인력 이슈 있을 때만) */}
-        {user && userRole === 'center' && hasStaffIssue && (
-          <button
-            onClick={handleStaffRequest}
-            disabled={loading}
-            className="px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition flex items-center gap-1 disabled:opacity-50"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            첨부 요청
-          </button>
-        )}
+        <div className="flex gap-2">
+          {/* 전담인력 첨부 요청 버튼 (센터 사용자 + 전담인력 이슈 있을 때만) */}
+          {user && userRole === 'center' && hasStaffIssue && (
+            <button
+              onClick={handleStaffRequest}
+              disabled={loading}
+              className="px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition flex items-center gap-1 disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              첨부 요청
+            </button>
+          )}
+
+          {/* 전담인력 중복 확인 요청 버튼 (센터 사용자 + 동일 기업에 2개 이상 과정 있을 때) */}
+          {user && userRole === 'center' && totalCoursesInCompany && totalCoursesInCompany >= 2 && (
+            <button
+              onClick={handleStaffDuplicationCheck}
+              disabled={loading}
+              className="px-3 py-1.5 text-sm bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition flex items-center gap-1 disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              담당자 확인
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 댓글 목록 */}
