@@ -29,8 +29,8 @@ const getPdfFiles = (companyName: string, courseName: string): { businessPlan?: 
   if (companyPrefix === 'A') {
     if (lowerCourseName.includes('ai') || lowerCourseName.includes('개발자 양성')) {
       return {
-        businessPlan: '/files/A_AI개발자양성과정_사업계획서.pdf',
-        staffRegistration: '/files/A_AI개발자양성과정_전담인력등록.pdf'
+        businessPlan: '/files/A_AI개발자양성과정_사업계획서.pdf'
+        // staffRegistration 제거 - 실시간 파일 첨부 테스트용
       }
     }
     if (lowerCourseName.includes('웹') || lowerCourseName.includes('웹개발')) {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthButton from "@/components/AuthButton";
+import RoleBasedNav from "@/components/RoleBasedNav";
 import Link from "next/link";
 
 const geistSans = Geist({
@@ -35,12 +36,7 @@ export default function RootLayout({
               일학습병행 대시보드
             </Link>
             <nav className="flex items-center gap-6">
-              <Link
-                href="/companies"
-                className="text-gray-600 hover:text-gray-900 transition"
-              >
-                기업 현황
-              </Link>
+              <RoleBasedNav />
               <AuthButton />
             </nav>
           </div>

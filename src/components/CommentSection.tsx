@@ -63,11 +63,14 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
 
   useEffect(() => {
     const fetchComments = async () => {
-      const { data } = await supabase
+      console.log('[CommentSection] Fetching comments for courseId:', courseId)
+      const { data, error } = await supabase
         .from('comments')
         .select('id, content, created_at, user_id')
         .eq('course_id', courseId)
         .order('created_at', { ascending: true })
+
+      console.log('[CommentSection] Comments fetched:', data, 'Error:', error)
 
       if (data && data.length > 0) {
         // 각 댓글의 user_id로 프로필 정보 가져오기
@@ -93,6 +96,7 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
 
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
+      console.log('[CommentSection] Current user:', user?.id)
       setUser(user)
 
       if (user) {
@@ -110,7 +114,7 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
 
     // 실시간 댓글 구독
     const channel = supabase
-      .channel('comments')
+      .channel(`course-comments-${courseId}`)
       .on(
         'postgres_changes',
         {
@@ -120,6 +124,12 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
           filter: `course_id=eq.${courseId}`,
         },
         async (payload) => {
+          // 자신이 방금 추가한 댓글은 무시 (handleSubmit에서 이미 추가됨)
+          const currentUser = await supabase.auth.getUser()
+          if (payload.new.user_id === currentUser.data.user?.id) {
+            return
+          }
+
           // 새 댓글의 프로필 정보 가져오기
           const { data: profile } = await supabase
             .from('profiles')
