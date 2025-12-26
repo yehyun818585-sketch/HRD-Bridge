@@ -90,7 +90,7 @@ export default function SetupPage() {
           </div>
 
           <button
-            onClick={() => createTestAccount('center')}
+            onClick={() => createTestAccount('center', 'center@example.com')}
             disabled={loading}
             className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
           >
@@ -125,7 +125,7 @@ export default function SetupPage() {
           </div>
 
           <button
-            onClick={() => createTestAccount('company')}
+            onClick={() => createTestAccount('company', 'company@example.com')}
             disabled={loading}
             className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
           >

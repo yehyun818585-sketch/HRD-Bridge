@@ -74,8 +74,30 @@ export default function MyCompanyPage() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<{ id: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [uploadingType, setUploadingType] = useState<string | null>(null)
+  // 업로드된 파일 상태 관리 (courseId -> { businessPlan?: string, staffRegistration?: string })
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, { businessPlan?: string; staffRegistration?: string }>>({})
 
   const supabase = createClient()
+
+  // DB에서 업로드된 파일 로드
+  const loadUploadedFiles = async (courseIds: string[]) => {
+    const { data } = await supabase
+      .from('course_files')
+      .select('course_id, file_type, file_url')
+      .in('course_id', courseIds)
+
+    if (data) {
+      const filesMap: Record<string, { businessPlan?: string; staffRegistration?: string }> = {}
+      data.forEach((file) => {
+        if (!filesMap[file.course_id]) {
+          filesMap[file.course_id] = {}
+        }
+        filesMap[file.course_id][file.file_type as 'businessPlan' | 'staffRegistration'] = file.file_url
+      })
+      setUploadedFiles(filesMap)
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -130,12 +152,65 @@ export default function MyCompanyPage() {
       setCompany(companyData as Company)
       if (companyData.courses?.length > 0) {
         setSelectedCourse(companyData.courses[0] as Course)
+        // DB에서 업로드된 파일 로드
+        const courseIds = companyData.courses.map((c: Course) => c.id)
+        loadUploadedFiles(courseIds)
       }
       setLoading(false)
     }
 
     fetchData()
   }, [])
+
+  // 실시간 파일 업로드/삭제 구독
+  useEffect(() => {
+    if (!company) return
+
+    const channel = supabase
+      .channel('course-files-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'course_files',
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const newFile = payload.new as { course_id: string; file_type: string; file_url: string }
+            // 내 회사 과정인 경우에만 업데이트
+            if (company.courses.some(c => c.id === newFile.course_id)) {
+              setUploadedFiles(prev => ({
+                ...prev,
+                [newFile.course_id]: {
+                  ...prev[newFile.course_id],
+                  [newFile.file_type]: newFile.file_url
+                }
+              }))
+            }
+          } else if (payload.eventType === 'DELETE') {
+            const oldFile = payload.old as { course_id: string; file_type: string }
+            // 내 회사 과정인 경우에만 업데이트
+            if (company.courses.some(c => c.id === oldFile.course_id)) {
+              setUploadedFiles(prev => {
+                const updated = { ...prev }
+                if (updated[oldFile.course_id]) {
+                  const courseFiles = { ...updated[oldFile.course_id] }
+                  delete courseFiles[oldFile.file_type as 'businessPlan' | 'staffRegistration']
+                  updated[oldFile.course_id] = courseFiles
+                }
+                return updated
+              })
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [company])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -152,6 +227,112 @@ export default function MyCompanyPage() {
       case 'pending': return '승인대기'
       case 'rejected': return '반려'
       default: return '준비중'
+    }
+  }
+
+  // 파일 첨부 핸들러
+  const handleFileUpload = async (type: 'businessPlan' | 'staffRegistration') => {
+    if (!selectedCourse || !user) return
+
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.pdf'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file || !selectedCourse) return
+
+      setUploadingType(type)
+
+      try {
+        // Supabase Storage에 파일 업로드 (한글 파일명 제거)
+        const fileExt = file.name.split('.').pop() || 'pdf'
+        const safeName = `${Date.now()}.${fileExt}`
+        const filePath = `${selectedCourse.id}/${type}/${safeName}`
+        const { error: uploadError } = await supabase.storage
+          .from('course-files')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: true
+          })
+
+        if (uploadError) {
+          throw new Error(`스토리지 업로드 실패: ${uploadError.message}`)
+        }
+
+        // Public URL 가져오기
+        const { data: urlData } = supabase.storage
+          .from('course-files')
+          .getPublicUrl(filePath)
+
+        const fileUrl = urlData.publicUrl
+
+        // DB에 파일 정보 저장 (upsert - 이미 있으면 업데이트)
+        const { error: dbError } = await supabase
+          .from('course_files')
+          .upsert({
+            course_id: selectedCourse.id,
+            file_type: type,
+            file_name: file.name,
+            file_url: fileUrl,
+            uploaded_by: user.id
+          }, {
+            onConflict: 'course_id,file_type'
+          })
+
+        if (dbError) {
+          throw new Error(`DB 저장 실패: ${dbError.message}`)
+        }
+
+        // 로컬 상태 업데이트
+        setUploadedFiles(prev => ({
+          ...prev,
+          [selectedCourse.id]: {
+            ...prev[selectedCourse.id],
+            [type]: fileUrl
+          }
+        }))
+
+        alert(`${type === 'businessPlan' ? '사업계획서' : '전담인력 등록'} 파일이 업로드되었습니다.\n파일명: ${file.name}`)
+      } catch (err) {
+        alert(`파일 업로드에 실패했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+      } finally {
+        setUploadingType(null)
+      }
+    }
+    input.click()
+  }
+
+  // 파일 삭제 핸들러
+  const handleFileDelete = async (type: 'businessPlan' | 'staffRegistration') => {
+    if (!selectedCourse || !user) return
+    if (!confirm(`${type === 'businessPlan' ? '사업계획서' : '전담인력 등록'} 파일을 삭제하시겠습니까?`)) return
+
+    try {
+      // DB에서 파일 정보 삭제
+      const { error: dbError } = await supabase
+        .from('course_files')
+        .delete()
+        .eq('course_id', selectedCourse.id)
+        .eq('file_type', type)
+
+      if (dbError) {
+        throw new Error(`DB 삭제 실패: ${dbError.message}`)
+      }
+
+      // 로컬 상태 업데이트
+      setUploadedFiles(prev => {
+        const updated = { ...prev }
+        if (updated[selectedCourse.id]) {
+          const courseFiles = { ...updated[selectedCourse.id] }
+          delete courseFiles[type]
+          updated[selectedCourse.id] = courseFiles
+        }
+        return updated
+      })
+
+      alert(`${type === 'businessPlan' ? '사업계획서' : '전담인력 등록'} 파일이 삭제되었습니다.`)
+    } catch (err) {
+      alert(`파일 삭제에 실패했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
     }
   }
 
@@ -181,7 +362,10 @@ export default function MyCompanyPage() {
 
   if (!company) return null
 
-  const pdfFiles = selectedCourse ? getPdfFiles(company.name, selectedCourse.name) : {}
+  // 기존 PDF와 업로드된 파일을 합침
+  const basePdfFiles = selectedCourse ? getPdfFiles(company.name, selectedCourse.name) : {}
+  const courseUploadedFiles = selectedCourse ? uploadedFiles[selectedCourse.id] || {} : {}
+  const pdfFiles = { ...basePdfFiles, ...courseUploadedFiles }
 
   return (
     <div className="space-y-6">
@@ -278,10 +462,26 @@ export default function MyCompanyPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {pdfFiles.businessPlan && <PdfViewerModal pdfUrl={pdfFiles.businessPlan} />}
-                        {!pdfFiles.businessPlan && (
-                          <button className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-                            파일 첨부
+                        {pdfFiles.businessPlan ? (
+                          <>
+                            <PdfViewerModal pdfUrl={pdfFiles.businessPlan} />
+                            {/* DB에서 업로드한 파일만 삭제 가능 (기본 파일 제외) */}
+                            {courseUploadedFiles.businessPlan && (
+                              <button
+                                onClick={() => handleFileDelete('businessPlan')}
+                                className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition"
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleFileUpload('businessPlan')}
+                            disabled={uploadingType === 'businessPlan'}
+                            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                          >
+                            {uploadingType === 'businessPlan' ? '업로드 중...' : '파일 첨부'}
                           </button>
                         )}
                       </div>
@@ -307,10 +507,26 @@ export default function MyCompanyPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {pdfFiles.staffRegistration && <PdfViewerModal pdfUrl={pdfFiles.staffRegistration} />}
-                        {!pdfFiles.staffRegistration && (
-                          <button className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-                            파일 첨부
+                        {pdfFiles.staffRegistration ? (
+                          <>
+                            <PdfViewerModal pdfUrl={pdfFiles.staffRegistration} />
+                            {/* DB에서 업로드한 파일만 삭제 가능 (기본 파일 제외) */}
+                            {courseUploadedFiles.staffRegistration && (
+                              <button
+                                onClick={() => handleFileDelete('staffRegistration')}
+                                className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition"
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleFileUpload('staffRegistration')}
+                            disabled={uploadingType === 'staffRegistration'}
+                            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                          >
+                            {uploadingType === 'staffRegistration' ? '업로드 중...' : '파일 첨부'}
                           </button>
                         )}
                       </div>

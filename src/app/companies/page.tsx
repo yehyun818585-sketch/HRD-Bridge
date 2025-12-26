@@ -16,6 +16,12 @@ interface Company {
   courses: Course[]
 }
 
+interface CourseFile {
+  course_id: string
+  file_type: string
+  file_url: string
+}
+
 // PDF 파일 매핑 - 기업명 첫글자와 과정명 키워드로 PDF 파일 경로 결정
 const getPdfFiles = (companyName: string, courseName: string): { businessPlan?: string; staffRegistration?: string } => {
   const companyPrefix = companyName.charAt(0).toUpperCase()
@@ -24,8 +30,8 @@ const getPdfFiles = (companyName: string, courseName: string): { businessPlan?: 
   if (companyPrefix === 'A') {
     if (lowerCourseName.includes('ai') || lowerCourseName.includes('개발자 양성')) {
       return {
-        businessPlan: '/files/A_AI개발자양성과정_사업계획서.pdf',
-        staffRegistration: '/files/A_AI개발자양성과정_전담인력등록.pdf'
+        businessPlan: '/files/A_AI개발자양성과정_사업계획서.pdf'
+        // staffRegistration 제거 - 실시간 파일 첨부 테스트용
       }
     }
     if (lowerCourseName.includes('웹') || lowerCourseName.includes('웹개발')) {
@@ -82,16 +88,26 @@ const checkStaffDuplication = (companyName: string, courses: Course[]): boolean 
   return false
 }
 
-// 과정별 유효 이슈 계산
-const getEffectiveIssue = (companyName: string, course: Course, courses: Course[]): string | null => {
-  const pdfFiles = getPdfFiles(companyName, course.name)
+// 과정별 유효 이슈 계산 (DB에서 업로드된 파일도 확인)
+const getEffectiveIssue = (
+  companyName: string,
+  course: Course,
+  courses: Course[],
+  uploadedFiles: Map<string, Set<string>>
+): string | null => {
+  const staticPdfFiles = getPdfFiles(companyName, course.name)
+  const uploadedFileTypes = uploadedFiles.get(course.id) || new Set()
+
+  // 정적 파일 또는 DB 업로드 파일이 있으면 해당 파일이 있는 것으로 간주
+  const hasStaffFile = staticPdfFiles.staffRegistration || uploadedFileTypes.has('staffRegistration')
+
   const hasStaffIssueInDB = course.issues?.includes('전담인력') || false
-  const isStaffIssueResolved = hasStaffIssueInDB && pdfFiles.staffRegistration
+  const isStaffIssueResolved = hasStaffIssueInDB && hasStaffFile
   const hasStaffDuplication = checkStaffDuplication(companyName, courses)
 
   let effectiveIssue = isStaffIssueResolved ? null : course.issues
 
-  if (hasStaffDuplication && pdfFiles.staffRegistration) {
+  if (hasStaffDuplication && hasStaffFile) {
     effectiveIssue = effectiveIssue ? `${effectiveIssue}, 전담인력 중복` : '전담인력 중복'
   }
 
@@ -116,6 +132,22 @@ export default async function CompaniesPage() {
       )
     `)
     .order('name')
+
+  // 모든 과정의 업로드된 파일 조회
+  const { data: courseFiles } = await supabase
+    .from('course_files')
+    .select('course_id, file_type, file_url')
+
+  // 업로드된 파일을 Map으로 변환 (course_id -> Set<file_type>)
+  const uploadedFilesMap = new Map<string, Set<string>>()
+  if (courseFiles) {
+    courseFiles.forEach((file: CourseFile) => {
+      if (!uploadedFilesMap.has(file.course_id)) {
+        uploadedFilesMap.set(file.course_id, new Set())
+      }
+      uploadedFilesMap.get(file.course_id)!.add(file.file_type)
+    })
+  }
 
   if (error) {
     return (
@@ -213,7 +245,7 @@ export default async function CompaniesPage() {
                   </td>
                   <td className="px-6 py-4 text-sm">
                     {(() => {
-                      const effectiveIssue = getEffectiveIssue(company.name, course, company.courses)
+                      const effectiveIssue = getEffectiveIssue(company.name, course, company.courses, uploadedFilesMap)
                       return effectiveIssue ? (
                         <span className="text-red-600">{effectiveIssue}</span>
                       ) : (

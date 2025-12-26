@@ -5,7 +5,21 @@
       "Bash(npm run dev:*)",
       "Bash(dir:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(del \"c:\\\\Users\\\\syoun\\\\OneDrive\\\\바탕 화면\\\\ai agent\\\\아이디어_한국산인공\\\\dashboard\\\\src\\\\app\\\\api\\\\clear-comments\\\\route.ts\")",
+      "Bash(node -e \"\nconst { createClient } = require\\(''@supabase/supabase-js''\\);\nconst supabase = createClient\\(\n  ''https://bioakjkcvmojuwajpylz.supabase.co'',\n  ''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpb2Framtjdm1vanV3YWpweWx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTc2NzMsImV4cCI6MjA4MTg3MzY3M30.ZiiCCnfBO8NPeoRdM6SyZRs-_bn2yzuxZvgb9T-DeFs''\n\\);\n\nasync function clearComments\\(\\) {\n  // 먼저 모든 댓글 조회\n  const { data: comments, error: fetchError } = await supabase\n    .from\\(''comments''\\)\n    .select\\(''*''\\);\n  \n  console.log\\(''Current comments:'', comments\\);\n  console.log\\(''Fetch error:'', fetchError\\);\n  \n  if \\(comments && comments.length > 0\\) {\n    // 각 댓글 삭제\n    for \\(const comment of comments\\) {\n      const { error } = await supabase\n        .from\\(''comments''\\)\n        .delete\\(\\)\n        .eq\\(''id'', comment.id\\);\n      console.log\\(''Deleted comment:'', comment.id, ''Error:'', error\\);\n    }\n  }\n}\n\nclearComments\\(\\);\n\")",
+      "Bash(taskkill /F /PID 13448)",
+      "Bash(taskkill:*)",
+      "Bash(powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 2; Write-Host ''Node processes stopped''\")",
+      "Bash(node -e \"\nconst { createClient } = require\\(''@supabase/supabase-js''\\);\nconst supabase = createClient\\(\n  ''https://bioakjkcvmojuwajpylz.supabase.co'',\n  ''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpb2Framtjdm1vanV3YWpweWx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTc2NzMsImV4cCI6MjA4MTg3MzY3M30.ZiiCCnfBO8NPeoRdM6SyZRs-_bn2yzuxZvgb9T-DeFs''\n\\);\n\nasync function checkComments\\(\\) {\n  const { data: comments, error } = await supabase\n    .from\\(''comments''\\)\n    .select\\(''*''\\);\n  \n  console.log\\(''=== 현재 DB의 모든 댓글 ===''\\);\n  console.log\\(''댓글 수:'', comments ? comments.length : 0\\);\n  if \\(comments && comments.length > 0\\) {\n    comments.forEach\\(c => {\n      console.log\\(''ID:'', c.id\\);\n      console.log\\(''Content:'', c.content\\);\n      console.log\\(''Course ID:'', c.course_id\\);\n      console.log\\(''---''\\);\n    }\\);\n  } else {\n    console.log\\(''댓글이 없습니다 \\(정상적으로 삭제됨\\)''\\);\n  }\n  console.log\\(''Error:'', error\\);\n}\n\ncheckComments\\(\\);\n\")",
+      "Bash(node -e \"\nconst { createClient } = require\\(''@supabase/supabase-js''\\);\nconst supabase = createClient\\(\n  ''https://bioakjkcvmojuwajpylz.supabase.co'',\n  ''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpb2Framtjdm1vanV3YWpweWx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTc2NzMsImV4cCI6MjA4MTg3MzY3M30.ZiiCCnfBO8NPeoRdM6SyZRs-_bn2yzuxZvgb9T-DeFs''\n\\);\n\nasync function checkData\\(\\) {\n  // 댓글 정보\n  const { data: comments } = await supabase\n    .from\\(''comments''\\)\n    .select\\(''id, content, user_id, course_id''\\);\n  \n  console.log\\(''=== 댓글 정보 ===''\\);\n  comments?.forEach\\(c => {\n    console.log\\(''Comment ID:'', c.id\\);\n    console.log\\(''User ID:'', c.user_id\\);\n    console.log\\(''Content:'', c.content.slice\\(0, 50\\) + ''...''\\);\n    console.log\\(''---''\\);\n  }\\);\n\n  // 프로필 정보\n  const { data: profiles } = await supabase\n    .from\\(''profiles''\\)\n    .select\\(''id, name, role, email''\\);\n  \n  console.log\\(''\\\\n=== 프로필 정보 ===''\\);\n  profiles?.forEach\\(p => {\n    console.log\\(''Profile ID:'', p.id\\);\n    console.log\\(''Name:'', p.name\\);\n    console.log\\(''Role:'', p.role\\);\n    console.log\\(''Email:'', p.email\\);\n    console.log\\(''---''\\);\n  }\\);\n}\n\ncheckData\\(\\);\n\")",
+      "Bash(git diff:*)",
+      "Bash(node:*)",
+      "Bash(npm run build:*)",
+      "Bash(timeout /t 2 /nobreak)"
     ]
   }
 }

@@ -112,60 +112,76 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
     fetchComments()
     getUser()
 
-    // 실시간 댓글 구독
+    // 실시간 댓글 구독 (filter 없이 전체 테이블 구독 후 코드에서 필터링)
     const channel = supabase
-      .channel(`course-comments-${courseId}`)
+      .channel(`center-comments-realtime-${courseId}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'comments',
-          filter: `course_id=eq.${courseId}`,
         },
         async (payload) => {
-          // 자신이 방금 추가한 댓글은 무시 (handleSubmit에서 이미 추가됨)
-          const currentUser = await supabase.auth.getUser()
-          if (payload.new.user_id === currentUser.data.user?.id) {
-            return
-          }
+          console.log('[CommentSection] Realtime event received:', payload.eventType, payload)
 
-          // 새 댓글의 프로필 정보 가져오기
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('name, role')
-            .eq('id', payload.new.user_id)
-            .single()
+          if (payload.eventType === 'INSERT') {
+            const newRecord = payload.new as { id: string; content: string; created_at: string; user_id: string; course_id: string }
 
-          const newCommentData: Comment = {
-            id: payload.new.id,
-            content: payload.new.content,
-            created_at: payload.new.created_at,
-            user_id: payload.new.user_id,
-            user_name: profile?.name || null,
-            user_role: profile?.role || null,
-          }
+            // 다른 과정의 댓글은 무시
+            if (newRecord.course_id !== courseId) {
+              console.log('[CommentSection] Different course, ignoring')
+              return
+            }
 
-          setComments((prev) => [...prev, newCommentData])
+            // 자신이 방금 추가한 댓글은 무시 (handleSubmit에서 이미 추가됨)
+            const currentUser = await supabase.auth.getUser()
+            if (newRecord.user_id === currentUser.data.user?.id) {
+              console.log('[CommentSection] Skipping own comment')
+              return
+            }
 
-          // 기업 댓글인 경우, 센터 사용자에게 알림 표시
-          if (profile?.role === 'company' && userRole === 'center') {
-            const analysis = analyzeComment(payload.new.content)
-            setNotification({
-              type: analysis.type,
-              message: analysis.notification
-            })
-            // 10초 후 알림 자동 제거
-            setTimeout(() => setNotification(null), 10000)
+            // 새 댓글의 프로필 정보 가져오기
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('name, role')
+              .eq('id', newRecord.user_id)
+              .single()
+
+            const newCommentData: Comment = {
+              id: newRecord.id,
+              content: newRecord.content,
+              created_at: newRecord.created_at,
+              user_id: newRecord.user_id,
+              user_name: profile?.name || null,
+              user_role: profile?.role || null,
+            }
+
+            console.log('[CommentSection] Adding new comment:', newCommentData)
+
+            setComments((prev) => [...prev, newCommentData])
+
+            // 기업 댓글인 경우, 센터 사용자에게 알림 표시
+            if (profile?.role === 'company' && userRole === 'center') {
+              const analysis = analyzeComment(newRecord.content)
+              setNotification({
+                type: analysis.type,
+                message: analysis.notification
+              })
+              // 10초 후 알림 자동 제거
+              setTimeout(() => setNotification(null), 10000)
+            }
           }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('[CommentSection] Subscription status:', status)
+      })
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [courseId, supabase])
+  }, [courseId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

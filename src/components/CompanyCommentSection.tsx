@@ -38,94 +38,113 @@ export default function CompanyCommentSection({ courseId, courseName, companyNam
       console.log('[CompanyCommentSection] Fetching comments for courseId:', courseId)
       setUser(currentUser)
 
-      const { data, error } = await supabase
+      // 먼저 댓글만 가져오기
+      const { data: commentsData, error } = await supabase
         .from('comments')
-        .select(`
-          id,
-          content,
-          created_at,
-          user_id,
-          profiles!comments_user_id_fkey (
-            name,
-            role
-          )
-        `)
+        .select('id, content, created_at, user_id')
         .eq('course_id', courseId)
         .order('created_at', { ascending: true })
 
-      console.log('[CompanyCommentSection] Comments fetched:', data, 'Error:', error)
+      console.log('[CompanyCommentSection] Comments fetched:', commentsData, 'Error:', error)
 
-      if (data) {
-        const formattedComments = data.map((c: { id: string; content: string; created_at: string; user_id: string; profiles: { name: string; role: string } | null }) => ({
+      if (commentsData && commentsData.length > 0) {
+        // 각 댓글의 프로필 정보 가져오기
+        const userIds = [...new Set(commentsData.map(c => c.user_id))]
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, name, role')
+          .in('id', userIds)
+
+        const profileMap = new Map(profilesData?.map(p => [p.id, p]) || [])
+
+        const formattedComments = commentsData.map((c) => ({
           id: c.id,
           content: c.content,
           created_at: c.created_at,
           user_id: c.user_id,
-          user_name: c.profiles?.name || null,
-          user_role: c.profiles?.role || null,
+          user_name: profileMap.get(c.user_id)?.name || null,
+          user_role: profileMap.get(c.user_id)?.role || null,
         }))
         setComments(formattedComments)
 
-        // 센터에서 온 읽지 않은 댓글 수 계산 (센터 역할 댓글 중 최근 것)
+        // 센터에서 온 읽지 않은 댓글 수 계산
         const centerComments = formattedComments.filter((c: Comment) => c.user_role === 'center')
-        setUnreadCount(centerComments.length > 0 ? 1 : 0) // 간단하게 표시
+        setUnreadCount(centerComments.length > 0 ? 1 : 0)
+      } else {
+        setComments([])
       }
     }
 
     fetchComments()
 
-    // 실시간 구독 (CommentSection과 동일한 채널명 사용)
+    // 실시간 구독 (filter 없이 전체 테이블 구독 후 코드에서 필터링)
     const channel = supabase
-      .channel(`course-comments-${courseId}`)
+      .channel(`company-comments-realtime-${courseId}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'comments',
-          filter: `course_id=eq.${courseId}`,
         },
         async (payload) => {
-          // 자신이 방금 추가한 댓글은 무시 (handleSubmit에서 이미 추가됨)
-          const currentUser = await supabase.auth.getUser()
-          if (payload.new.user_id === currentUser.data.user?.id) {
-            return
+          console.log('[CompanyCommentSection] Realtime event received:', payload.eventType, payload)
+
+          if (payload.eventType === 'INSERT') {
+            const newRecord = payload.new as { id: string; content: string; created_at: string; user_id: string; course_id: string }
+
+            // 다른 과정의 댓글은 무시
+            if (newRecord.course_id !== courseId) {
+              console.log('[CompanyCommentSection] Different course, ignoring')
+              return
+            }
+
+            // 자신이 방금 추가한 댓글은 무시 (handleSubmit에서 이미 추가됨)
+            const currentUser = await supabase.auth.getUser()
+            if (newRecord.user_id === currentUser.data.user?.id) {
+              console.log('[CompanyCommentSection] Skipping own comment')
+              return
+            }
+
+            // 새 댓글 도착 시 프로필 정보 가져오기
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('name, role')
+              .eq('id', newRecord.user_id)
+              .single()
+
+            const newCommentData: Comment = {
+              id: newRecord.id,
+              content: newRecord.content,
+              created_at: newRecord.created_at,
+              user_id: newRecord.user_id,
+              user_name: profile?.name || null,
+              user_role: profile?.role || null,
+            }
+
+            console.log('[CompanyCommentSection] Adding new comment:', newCommentData)
+
+            // 센터에서 온 댓글이면 알림 표시
+            if (profile?.role === 'center') {
+              setNotification({
+                type: 'center_request',
+                message: `[센터 요청] ${newRecord.content.slice(0, 50)}${newRecord.content.length > 50 ? '...' : ''}`
+              })
+              setUnreadCount(prev => prev + 1)
+            }
+
+            setComments((prev) => [...prev, newCommentData])
           }
-
-          // 새 댓글 도착 시 프로필 정보 가져오기
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('name, role')
-            .eq('id', payload.new.user_id)
-            .single()
-
-          const newCommentData: Comment = {
-            id: payload.new.id,
-            content: payload.new.content,
-            created_at: payload.new.created_at,
-            user_id: payload.new.user_id,
-            user_name: profile?.name || null,
-            user_role: profile?.role || null,
-          }
-
-          // 센터에서 온 댓글이면 알림 표시
-          if (profile?.role === 'center') {
-            setNotification({
-              type: 'center_request',
-              message: `[센터 요청] ${payload.new.content.slice(0, 50)}${payload.new.content.length > 50 ? '...' : ''}`
-            })
-            setUnreadCount(prev => prev + 1)
-          }
-
-          setComments((prev) => [...prev, newCommentData])
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('[CompanyCommentSection] Subscription status:', status)
+      })
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [courseId, user?.id])
+  }, [courseId])
 
   // 댓글 작성
   const handleSubmit = async (e: React.FormEvent) => {
