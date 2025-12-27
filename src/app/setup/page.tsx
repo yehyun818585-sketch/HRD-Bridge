@@ -6,12 +6,12 @@ import Link from 'next/link'
 
 export default function SetupPage() {
   const [loading, setLoading] = useState(false)
-  const [results, setResults] = useState<{ center?: string; company?: string }>({})
+  const [results, setResults] = useState<{ center?: string; companyA?: string; companyB?: string; companyC?: string }>({})
   const [centerEmail, setCenterEmail] = useState('')
   const [companyEmail, setCompanyEmail] = useState('')
   const supabase = createClient()
 
-  const createTestAccount = async (type: 'center' | 'company', email: string) => {
+  const createTestAccount = async (type: 'center' | 'companyA' | 'companyB' | 'companyC', email: string) => {
     if (!email) {
       setResults(prev => ({ ...prev, [type]: '이메일을 입력해주세요.' }))
       return
@@ -34,9 +34,16 @@ export default function SetupPage() {
 
     if (data.user) {
       // 2. 프로필 업데이트 (역할 및 소속 기업 설정)
-      const profileUpdate = type === 'center'
-        ? { role: 'center', name: '센터 담당자' }
-        : { role: 'company', name: 'A사 담당자', company_id: '11111111-1111-1111-1111-111111111111' }
+      let profileUpdate
+      if (type === 'center') {
+        profileUpdate = { role: 'center', name: '센터 담당자' }
+      } else if (type === 'companyA') {
+        profileUpdate = { role: 'company', name: 'A사 담당자', company_id: '11111111-1111-1111-1111-111111111111' }
+      } else if (type === 'companyB') {
+        profileUpdate = { role: 'company', name: 'B사 담당자', company_id: '22222222-2222-2222-2222-222222222222' }
+      } else {
+        profileUpdate = { role: 'company', name: 'C사 담당자', company_id: '33333333-3333-3333-3333-333333333333' }
+      }
 
       const { error: profileError } = await supabase
         .from('profiles')
@@ -104,7 +111,7 @@ export default function SetupPage() {
           )}
         </div>
 
-        {/* 기업 담당자 */}
+        {/* 기업 담당자 A사 */}
         <div className="bg-green-50 border border-green-200 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
@@ -119,25 +126,95 @@ export default function SetupPage() {
           </div>
 
           <div className="space-y-2 text-sm text-green-800 mb-4">
-            <p><strong>이메일:</strong> company@example.com</p>
+            <p><strong>이메일:</strong> companya@example.com</p>
             <p><strong>비밀번호:</strong> test1234</p>
             <p><strong>역할:</strong> company (A사 소속)</p>
           </div>
 
           <button
-            onClick={() => createTestAccount('company', 'company@example.com')}
+            onClick={() => createTestAccount('companyA', 'companya@example.com')}
             disabled={loading}
             className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
           >
-            {loading ? '생성 중...' : '기업 계정 생성'}
+            {loading ? '생성 중...' : 'A사 계정 생성'}
           </button>
 
-          {results.company && (
-            <p className={`mt-2 text-sm ${results.company.includes('성공') ? 'text-green-600' : 'text-red-600'}`}>
-              {results.company}
+          {results.companyA && (
+            <p className={`mt-2 text-sm ${results.companyA.includes('성공') ? 'text-green-600' : 'text-red-600'}`}>
+              {results.companyA}
             </p>
           )}
         </div>
+      </div>
+
+      {/* 기업 담당자 B사 */}
+      <div className="bg-orange-50 border border-orange-200 rounded-xl p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-orange-600 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="font-semibold text-orange-900">기업 담당자 (B사)</h2>
+            <p className="text-sm text-orange-700">본인 기업만 조회/수정</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 text-sm text-orange-800 mb-4">
+          <p><strong>이메일:</strong> companyb@example.com</p>
+          <p><strong>비밀번호:</strong> test1234</p>
+          <p><strong>역할:</strong> company (B사 소속)</p>
+        </div>
+
+        <button
+          onClick={() => createTestAccount('companyB', 'companyb@example.com')}
+          disabled={loading}
+          className="w-full py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition"
+        >
+          {loading ? '생성 중...' : 'B사 계정 생성'}
+        </button>
+
+        {results.companyB && (
+          <p className={`mt-2 text-sm ${results.companyB.includes('성공') ? 'text-green-600' : 'text-red-600'}`}>
+            {results.companyB}
+          </p>
+        )}
+      </div>
+
+      {/* 기업 담당자 C사 */}
+      <div className="bg-purple-50 border border-purple-200 rounded-xl p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="font-semibold text-purple-900">기업 담당자 (C사)</h2>
+            <p className="text-sm text-purple-700">본인 기업만 조회/수정</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 text-sm text-purple-800 mb-4">
+          <p><strong>이메일:</strong> companyc@example.com</p>
+          <p><strong>비밀번호:</strong> test1234</p>
+          <p><strong>역할:</strong> company (C사 소속)</p>
+        </div>
+
+        <button
+          onClick={() => createTestAccount('companyC', 'companyc@example.com')}
+          disabled={loading}
+          className="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition"
+        >
+          {loading ? '생성 중...' : 'C사 계정 생성'}
+        </button>
+
+        {results.companyC && (
+          <p className={`mt-2 text-sm ${results.companyC.includes('성공') ? 'text-green-600' : 'text-red-600'}`}>
+            {results.companyC}
+          </p>
+        )}
       </div>
 
       {/* 안내 */}

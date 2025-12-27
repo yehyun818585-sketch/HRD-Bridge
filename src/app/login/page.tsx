@@ -59,18 +59,23 @@ export default function LoginPage() {
   }
 
   // 테스트 계정 빠른 로그인
-  const quickLogin = async (type: 'center' | 'company') => {
+  const quickLogin = async (type: 'center' | 'companyA' | 'companyB' | 'companyC') => {
     setLoading(true)
     setError(null)
 
-    const credentials = type === 'center'
-      ? { email: 'center@example.com', password: 'test1234' }
-      : { email: 'company@example.com', password: 'test1234' }
+    const credentialsMap = {
+      center: { email: 'center@example.com', password: 'test1234' },
+      companyA: { email: 'companya@example.com', password: 'test1234' },
+      companyB: { email: 'companyb@example.com', password: 'test1234' },
+      companyC: { email: 'companyc@example.com', password: 'test1234' },
+    }
 
+    const credentials = credentialsMap[type]
     const { error } = await supabase.auth.signInWithPassword(credentials)
 
     if (error) {
-      setError(`${type === 'center' ? '센터' : '기업'} 테스트 계정이 없습니다. 먼저 생성해주세요.`)
+      const typeNames = { center: '센터', companyA: 'A사', companyB: 'B사', companyC: 'C사' }
+      setError(`${typeNames[type]} 테스트 계정이 없습니다. 먼저 생성해주세요.`)
     } else {
       router.push(type === 'center' ? '/companies' : '/my-company')
       router.refresh()
@@ -100,11 +105,25 @@ export default function LoginPage() {
               센터 담당자
             </button>
             <button
-              onClick={() => quickLogin('company')}
+              onClick={() => quickLogin('companyA')}
               disabled={loading}
               className="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
             >
-              기업 담당자 (A사)
+              A사 담당자
+            </button>
+            <button
+              onClick={() => quickLogin('companyB')}
+              disabled={loading}
+              className="flex-1 px-3 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition"
+            >
+              B사 담당자
+            </button>
+            <button
+              onClick={() => quickLogin('companyC')}
+              disabled={loading}
+              className="flex-1 px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition"
+            >
+              C사 담당자
             </button>
           </div>
           <p className="text-xs text-amber-600 mt-2">
