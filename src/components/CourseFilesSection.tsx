@@ -9,7 +9,9 @@ interface CourseFilesSectionProps {
   courseName: string
   companyName: string
   hasStaffIssue: boolean
+  hasStaffDuplication?: boolean
   initialPdfFiles: { businessPlan?: string; staffRegistration?: string }
+  initialIssues?: string | null
 }
 
 export default function CourseFilesSection({
@@ -17,9 +19,12 @@ export default function CourseFilesSection({
   courseName,
   companyName,
   hasStaffIssue,
-  initialPdfFiles
+  hasStaffDuplication = false,
+  initialPdfFiles,
+  initialIssues
 }: CourseFilesSectionProps) {
   const [uploadedFiles, setUploadedFiles] = useState<{ businessPlan?: string; staffRegistration?: string }>({})
+  const [currentIssues, setCurrentIssues] = useState<string | null>(initialIssues ?? null)
   const supabase = createClient()
 
   // DB에서 업로드된 파일 로드
@@ -42,7 +47,7 @@ export default function CourseFilesSection({
     loadUploadedFiles()
   }, [courseId])
 
-  // 실시간 파일 업로드 구독
+  // 실시간 파일 업로드 및 이슈 변경 구독
   useEffect(() => {
     const channel = supabase
       .channel(`course-files-${courseId}`)
@@ -74,6 +79,20 @@ export default function CourseFilesSection({
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'courses',
+        },
+        (payload) => {
+          const updatedCourse = payload.new as { id: string; issues: string | null }
+          if (updatedCourse.id === courseId) {
+            setCurrentIssues(updatedCourse.issues)
+          }
+        }
+      )
       .subscribe()
 
     return () => {
@@ -84,8 +103,32 @@ export default function CourseFilesSection({
   // 기존 PDF와 업로드된 파일 합침
   const pdfFiles = { ...initialPdfFiles, ...uploadedFiles }
 
+  // 현재 이슈 상태 계산 (파일 업로드 여부에 따라)
+  // 전담인력 파일이 없으면 (정적 파일도, 업로드된 파일도 없으면) 이슈
+  const hasNoStaffFile = !pdfFiles.staffRegistration
+
+  // displayIssue 계산
+  let displayIssue: string | null = null
+
+  // 전담인력 파일이 없으면 "전담인력 등록 누락" 표시
+  if (hasNoStaffFile) {
+    displayIssue = '전담인력 등록 누락'
+  }
+  // 전담인력 중복이 있고, 전담인력 파일이 있을 때 중복 이슈 표시
+  else if (hasStaffDuplication && pdfFiles.staffRegistration) {
+    displayIssue = '전담인력 중복'
+  }
+
   return (
     <div className="mt-6 pt-6 border-t border-gray-200">
+      {/* 주요이슈 (실시간 업데이트) */}
+      <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+        <p className="text-sm text-gray-500 mb-1">주요 이슈</p>
+        <p className={`font-medium ${displayIssue ? 'text-red-600' : 'text-gray-400'}`}>
+          {displayIssue || '이슈 없음'}
+        </p>
+      </div>
+
       <h3 className="text-sm font-semibold text-gray-700 mb-3">서류 제출 현황</h3>
       <div className="space-y-2">
         {/* 사업계획서 */}

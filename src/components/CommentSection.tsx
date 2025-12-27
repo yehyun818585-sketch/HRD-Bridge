@@ -435,7 +435,9 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
             아직 댓글이 없습니다. 첫 번째 피드백을 남겨보세요!
           </p>
         ) : (
-          comments.map((comment) => (
+          comments.map((comment) => {
+            const isOwner = user && user.id === comment.user_id
+            return (
             <div key={comment.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
               <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
                 {comment.user_name?.charAt(0) || '?'}
@@ -449,7 +451,7 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
                   <span className="text-xs text-gray-400">
                     {formatDate(comment.created_at)}
                   </span>
-                  {user && user.id === comment.user_id && (
+                  {isOwner && (
                     <div className="flex gap-1 ml-auto">
                       <button
                         onClick={() => handleEdit(comment)}
@@ -492,7 +494,7 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
                 )}
               </div>
             </div>
-          ))
+          )})
         )}
       </div>
 

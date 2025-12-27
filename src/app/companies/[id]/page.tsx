@@ -198,18 +198,12 @@ export default async function CompanyDetailPage({
             (() => {
               // PDF 파일 정보를 먼저 가져와서 이슈 상태 계산
               const pdfFiles = getPdfFiles(typedCompany.name, selectedCourse.name)
-              // 전담인력 이슈가 있지만 PDF가 첨부되어 있으면 이슈 해결된 것으로 간주
-              const hasStaffIssueInDB = selectedCourse.issues?.includes('전담인력') || false
-              const isStaffIssueResolved = hasStaffIssueInDB && pdfFiles.staffRegistration
+
+              // 전담인력 파일이 없으면 이슈 (DB 이슈 여부와 관계없이)
+              const hasNoStaffFile = !pdfFiles.staffRegistration
 
               // 전담인력 중복 여부 체크 (동일 파일이 여러 과정에 사용되는 경우)
               const hasStaffDuplication = checkStaffDuplication(typedCompany.name, typedCompany.courses)
-
-              // 최종 이슈 결정: 기존 이슈가 해결되었으면 null, 중복이면 "전담인력 중복"
-              let effectiveIssue = isStaffIssueResolved ? null : selectedCourse.issues
-              if (hasStaffDuplication && pdfFiles.staffRegistration) {
-                effectiveIssue = effectiveIssue ? `${effectiveIssue}, 전담인력 중복` : '전담인력 중복'
-              }
 
               return (
             <>
@@ -238,21 +232,17 @@ export default async function CompanyDetailPage({
                       {getStatusText(selectedCourse.status)}
                     </span>
                   </div>
-                  <div className="p-4 bg-gray-50 rounded-lg md:col-span-2">
-                    <p className="text-sm text-gray-500 mb-1">주요 이슈</p>
-                    <p className={`font-medium ${effectiveIssue ? 'text-red-600' : 'text-gray-400'}`}>
-                      {effectiveIssue || '이슈 없음'}
-                    </p>
-                  </div>
                 </div>
 
-                {/* 서류 제출 현황 (실시간 업데이트) */}
+                {/* 서류 제출 현황 및 주요이슈 (실시간 업데이트) */}
                 <CourseFilesSection
                   courseId={selectedCourse.id}
                   courseName={selectedCourse.name}
                   companyName={typedCompany.name}
-                  hasStaffIssue={hasStaffIssueInDB && !pdfFiles.staffRegistration}
+                  hasStaffIssue={hasNoStaffFile}
+                  hasStaffDuplication={hasStaffDuplication}
                   initialPdfFiles={pdfFiles}
+                  initialIssues={selectedCourse.issues}
                 />
               </div>
 
@@ -260,7 +250,7 @@ export default async function CompanyDetailPage({
               <CommentSection
                 courseId={selectedCourse.id}
                 courseName={selectedCourse.name}
-                hasStaffIssue={hasStaffIssueInDB && !pdfFiles.staffRegistration}
+                hasStaffIssue={hasNoStaffFile}
                 companyName={typedCompany.name}
                 totalCoursesInCompany={typedCompany.courses.length}
               />

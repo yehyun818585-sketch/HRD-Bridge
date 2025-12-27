@@ -126,13 +126,13 @@ export default function SetupPage() {
           </div>
 
           <div className="space-y-2 text-sm text-green-800 mb-4">
-            <p><strong>이메일:</strong> companya@example.com</p>
+            <p><strong>이메일:</strong> company@example.com</p>
             <p><strong>비밀번호:</strong> test1234</p>
             <p><strong>역할:</strong> company (A사 소속)</p>
           </div>
 
           <button
-            onClick={() => createTestAccount('companyA', 'companya@example.com')}
+            onClick={() => createTestAccount('companyA', 'company@example.com')}
             disabled={loading}
             className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
           >

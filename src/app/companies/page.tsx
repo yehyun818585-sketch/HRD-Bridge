@@ -88,7 +88,7 @@ const checkStaffDuplication = (companyName: string, courses: Course[]): boolean 
   return false
 }
 
-// 과정별 유효 이슈 계산 (DB에서 업로드된 파일도 확인)
+// 과정별 유효 이슈 계산 (전담인력 누락/중복 자동 계산)
 const getEffectiveIssue = (
   companyName: string,
   course: Course,
@@ -100,18 +100,19 @@ const getEffectiveIssue = (
 
   // 정적 파일 또는 DB 업로드 파일이 있으면 해당 파일이 있는 것으로 간주
   const hasStaffFile = staticPdfFiles.staffRegistration || uploadedFileTypes.has('staffRegistration')
-
-  const hasStaffIssueInDB = course.issues?.includes('전담인력') || false
-  const isStaffIssueResolved = hasStaffIssueInDB && hasStaffFile
   const hasStaffDuplication = checkStaffDuplication(companyName, courses)
 
-  let effectiveIssue = isStaffIssueResolved ? null : course.issues
-
-  if (hasStaffDuplication && hasStaffFile) {
-    effectiveIssue = effectiveIssue ? `${effectiveIssue}, 전담인력 중복` : '전담인력 중복'
+  // 전담인력 파일이 없으면 "전담인력 등록 누락" 표시
+  if (!hasStaffFile) {
+    return '전담인력 등록 누락'
   }
 
-  return effectiveIssue
+  // 전담인력 중복 이슈 (파일이 있을 때만)
+  if (hasStaffDuplication) {
+    return '전담인력 중복'
+  }
+
+  return null
 }
 
 export default async function CompaniesPage() {

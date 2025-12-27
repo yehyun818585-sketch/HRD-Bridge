@@ -65,7 +65,7 @@ export default function LoginPage() {
 
     const credentialsMap = {
       center: { email: 'center@example.com', password: 'test1234' },
-      companyA: { email: 'companya@example.com', password: 'test1234' },
+      companyA: { email: 'company@example.com', password: 'test1234' },
       companyB: { email: 'companyb@example.com', password: 'test1234' },
       companyC: { email: 'companyc@example.com', password: 'test1234' },
     }

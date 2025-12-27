@@ -68,6 +68,51 @@ const getPdfFiles = (companyName: string, courseName: string): { businessPlan?: 
   return {}
 }
 
+// 전담인력 중복 여부 확인
+const checkStaffDuplication = (companyName: string, courses: Course[]): boolean => {
+  const staffFiles: string[] = []
+
+  for (const course of courses) {
+    const pdfFiles = getPdfFiles(companyName, course.name)
+    if (pdfFiles.staffRegistration) {
+      staffFiles.push(pdfFiles.staffRegistration)
+    }
+  }
+
+  if (staffFiles.length >= 2) {
+    const uniqueFiles = new Set(staffFiles)
+    return uniqueFiles.size < staffFiles.length
+  }
+
+  return false
+}
+
+// 유효 이슈 계산 (전담인력 누락/중복 포함)
+const getEffectiveIssue = (
+  companyName: string,
+  course: Course,
+  courses: Course[],
+  uploadedFiles: Record<string, { businessPlan?: string; staffRegistration?: string }>
+): string | null => {
+  const staticPdfFiles = getPdfFiles(companyName, course.name)
+  const uploadedFileTypes = uploadedFiles[course.id] || {}
+
+  const hasStaffFile = staticPdfFiles.staffRegistration || uploadedFileTypes.staffRegistration
+  const hasStaffDuplication = checkStaffDuplication(companyName, courses)
+
+  // 전담인력 파일이 없으면 "전담인력 등록 누락" 표시
+  if (!hasStaffFile) {
+    return '전담인력 등록 누락'
+  }
+
+  // 전담인력 중복 이슈 (파일이 있을 때만)
+  if (hasStaffDuplication) {
+    return '전담인력 중복'
+  }
+
+  return null
+}
+
 export default function MyCompanyPage() {
   const [company, setCompany] = useState<Company | null>(null)
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
@@ -292,6 +337,29 @@ export default function MyCompanyPage() {
           }
         }))
 
+        // 파일 첨부 시 해당 과정의 주요이슈 자동 삭제
+        if (selectedCourse.issues) {
+          const { error: issueError } = await supabase
+            .from('courses')
+            .update({ issues: null })
+            .eq('id', selectedCourse.id)
+
+          if (!issueError) {
+            // 로컬 상태 업데이트 - selectedCourse
+            setSelectedCourse(prev => prev ? { ...prev, issues: null } : null)
+            // 로컬 상태 업데이트 - company.courses
+            setCompany(prev => {
+              if (!prev) return null
+              return {
+                ...prev,
+                courses: prev.courses.map(c =>
+                  c.id === selectedCourse.id ? { ...c, issues: null } : c
+                )
+              }
+            })
+          }
+        }
+
         alert(`${type === 'businessPlan' ? '사업계획서' : '전담인력 등록'} 파일이 업로드되었습니다.\n파일명: ${file.name}`)
       } catch (err) {
         alert(`파일 업로드에 실패했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
@@ -434,9 +502,14 @@ export default function MyCompanyPage() {
                   </div>
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-500 mb-1">주요 이슈</p>
-                    <p className={`font-medium ${selectedCourse.issues ? 'text-red-600' : 'text-gray-400'}`}>
-                      {selectedCourse.issues || '이슈 없음'}
-                    </p>
+                    {(() => {
+                      const effectiveIssue = company ? getEffectiveIssue(company.name, selectedCourse, company.courses, uploadedFiles) : selectedCourse.issues
+                      return (
+                        <p className={`font-medium ${effectiveIssue ? 'text-red-600' : 'text-gray-400'}`}>
+                          {effectiveIssue || '이슈 없음'}
+                        </p>
+                      )
+                    })()}
                   </div>
                 </div>
 
