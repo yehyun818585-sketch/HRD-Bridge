@@ -158,7 +158,7 @@ export default function LoginPage() {
         {mode === 'centerSignup' && confirmStep ? (
           <div className="space-y-4">
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-900">아래 센터명이 맞는지 다시 한번 확인해주세요. 오타로 새 센터가 잘못 만들어지면 나중에 되돌리기 번거롭습니다.</p>
+              <p className="text-sm text-blue-900">아래 센터명이 맞는지 다시 한번 확인해주세요. (센터명 변경은 어렵습니다)</p>
               <p className="mt-2 text-lg font-bold text-blue-900">{centerName}</p>
             </div>
             <div className="flex gap-2">
