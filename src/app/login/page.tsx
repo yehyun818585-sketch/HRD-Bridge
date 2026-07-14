@@ -9,17 +9,36 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [centerCode, setCenterCode] = useState('')
+  const [centerName, setCenterName] = useState('')
+  const [confirmStep, setConfirmStep] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'login' | 'centerSignup'>('login')
 
+  const switchMode = (next: 'login' | 'centerSignup') => {
+    setMode(next)
+    setConfirmStep(false)
+    setError(null)
+  }
+
   const router = useRouter()
   const supabase = createClient()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     setError(null)
+
+    // 센터명은 오타로 다른 센터가 생길 위험이 있어, 실제 가입 전에 한 번 더 확인시킨다.
+    if (mode === 'centerSignup' && !confirmStep) {
+      if (!centerName.trim()) {
+        setError('센터명을 입력해주세요.')
+        return
+      }
+      setConfirmStep(true)
+      return
+    }
+
+    setLoading(true)
 
     if (mode === 'centerSignup') {
       // 1) 계정 생성 - 이 시점엔 role이 없는(권한 없음) 상태로 만들어진다.
@@ -30,11 +49,12 @@ export default function LoginPage() {
         return
       }
 
-      // 2) 센터 가입 코드는 서버(/api/claim-center-role)에서만 비교한다.
+      // 2) 센터 가입 코드는 서버(/api/claim-center-role)에서만 비교하고,
+      //    센터명으로 기존 센터에 합류하거나 새 센터를 만든다.
       const res = await fetch('/api/claim-center-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: centerCode }),
+        body: JSON.stringify({ code: centerCode, centerName: centerName.trim() }),
       })
 
       if (!res.ok) {
@@ -135,64 +155,102 @@ export default function LoginPage() {
           <div className="p-3 rounded-lg text-sm bg-red-50 text-red-700">{error}</div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="example@email.com"
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+        {mode === 'centerSignup' && confirmStep ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-900">아래 센터명이 맞는지 다시 한번 확인해주세요. 오타로 새 센터가 잘못 만들어지면 나중에 되돌리기 번거롭습니다.</p>
+              <p className="mt-2 text-lg font-bold text-blue-900">{centerName}</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmStep(false)}
+                disabled={loading}
+                className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition"
+              >
+                다시 입력
+              </button>
+              <button
+                onClick={() => handleSubmit()}
+                disabled={loading}
+                className="flex-1 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition"
+              >
+                {loading ? '처리중...' : '맞습니다, 가입 완료'}
+              </button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              minLength={6}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          {mode === 'centerSignup' && (
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">센터 가입 코드</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
               <input
-                type="text"
-                value={centerCode}
-                onChange={(e) => setCenterCode(e.target.value)}
-                placeholder="센터 관리자에게 받은 코드"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@email.com"
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-          )}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition"
-          >
-            {loading ? '처리중...' : mode === 'login' ? '로그인' : '센터 가입'}
-          </button>
-        </form>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                minLength={6}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {mode === 'centerSignup' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">센터명</label>
+                  <input
+                    type="text"
+                    value={centerName}
+                    onChange={(e) => setCenterName(e.target.value)}
+                    placeholder="예: 서중대학교 산학협력단"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">센터 가입 코드</label>
+                  <input
+                    type="text"
+                    value={centerCode}
+                    onChange={(e) => setCenterCode(e.target.value)}
+                    placeholder="센터 관리자에게 받은 코드"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition"
+            >
+              {loading ? '처리중...' : mode === 'login' ? '로그인' : '다음'}
+            </button>
+          </form>
+        )}
 
         <div className="text-center text-sm space-y-1">
           {mode === 'login' ? (
             <p>
               센터 담당자이신가요?{' '}
-              <button onClick={() => setMode('centerSignup')} className="text-blue-600 hover:underline">
+              <button onClick={() => switchMode('centerSignup')} className="text-blue-600 hover:underline">
                 센터 가입
               </button>
             </p>
           ) : (
             <p>
               이미 계정이 있으신가요?{' '}
-              <button onClick={() => setMode('login')} className="text-blue-600 hover:underline">
+              <button onClick={() => switchMode('login')} className="text-blue-600 hover:underline">
                 로그인
               </button>
             </p>

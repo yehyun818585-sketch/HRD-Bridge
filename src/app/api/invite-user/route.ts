@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
   const { data: callerProfile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, center_id')
     .eq('id', user.id)
     .single()
 
@@ -30,6 +30,18 @@ export async function POST(request: NextRequest) {
 
   if (!email || !companyId) {
     return NextResponse.json({ error: '이메일과 소속 회사를 올바르게 입력해주세요.' }, { status: 400 })
+  }
+
+  // UI 드롭다운은 내 센터 회사만 보여주지만, API를 직접 호출해 다른 센터 회사에
+  // 초대를 보내는 것까지 서버에서 막는다.
+  const { data: targetCompany } = await supabase
+    .from('companies')
+    .select('center_id')
+    .eq('id', companyId)
+    .single()
+
+  if (!targetCompany || targetCompany.center_id !== callerProfile.center_id) {
+    return NextResponse.json({ error: '소속 센터의 회사에만 초대를 보낼 수 있습니다.' }, { status: 403 })
   }
 
   let admin

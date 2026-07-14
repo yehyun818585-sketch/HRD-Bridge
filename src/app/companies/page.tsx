@@ -64,7 +64,7 @@ export default async function CompaniesPage() {
   // 센터 전용 페이지 - 로그인만으로는 부족하고 role도 center여야 한다.
   const { data: callerProfile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, center_id')
     .eq('id', user.id)
     .single()
 
@@ -72,6 +72,7 @@ export default async function CompaniesPage() {
     redirect('/my-company')
   }
 
+  // 소속 센터 회사만 조회 - 다른 센터 회사는 보이면 안 된다.
   const { data: companies, error } = await supabase
     .from('companies')
     .select(`
@@ -86,6 +87,7 @@ export default async function CompaniesPage() {
         issues
       )
     `)
+    .eq('center_id', callerProfile.center_id)
     .order('name')
 
   // 모든 과정의 업로드된 파일 조회

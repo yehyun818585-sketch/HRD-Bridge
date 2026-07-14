@@ -3,10 +3,18 @@
 -- Supabase SQL Editor에서 실행하세요
 -- =============================================
 
+-- 0. 센터 테이블 (센터는 여러 개일 수 있고, 각 센터는 자기 소속 회사만 본다)
+CREATE TABLE centers (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 1. 기업 테이블
 CREATE TABLE companies (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
+  center_id UUID REFERENCES centers(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -28,6 +36,7 @@ CREATE TABLE profiles (
   name TEXT,
   role TEXT DEFAULT 'company' CHECK (role IN ('company', 'center')),
   company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+  center_id UUID REFERENCES centers(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

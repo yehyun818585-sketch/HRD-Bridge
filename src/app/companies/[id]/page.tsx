@@ -18,6 +18,7 @@ interface Course {
 interface Company {
   id: string
   name: string
+  center_id: string
   created_at: string
   courses: Course[]
 }
@@ -42,7 +43,7 @@ export default async function CompanyDetailPage({
   // 센터 전용 페이지 - 로그인만으로는 부족하고 role도 center여야 한다.
   const { data: callerProfile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, center_id')
     .eq('id', user.id)
     .single()
 
@@ -55,6 +56,7 @@ export default async function CompanyDetailPage({
     .select(`
       id,
       name,
+      center_id,
       created_at,
       courses (
         id,
@@ -69,6 +71,11 @@ export default async function CompanyDetailPage({
     .single()
 
   if (error || !company) {
+    notFound()
+  }
+
+  // 다른 센터 소속 회사는 URL을 직접 입력해도 접근 못 하게 막는다.
+  if (company.center_id !== callerProfile.center_id) {
     notFound()
   }
 
