@@ -6,37 +6,16 @@
 
 - **정보 가시성**: 기업별 과정 진행 현황, 승인 상태, 주요 이슈를 실시간으로 확인
 - **읽기 전용**: 공동훈련센터는 정보 조회만 가능, 데이터 수정 권한 없음
-- **댓글 피드백**: 서류 추가/수정 요청을 댓글로 전달하여 원활한 소통
-- **Google OAuth**: Google 계정으로 간편 로그인
+- **댓글 피드백**: 서류 추가/수정 요청을 댓글로 전달하여 원활한 소통, 새 댓글은 이메일로도 알림
 - **PDF 서류 첨부**: 사업계획서, 전담인력등록 PDF 파일 첨부 및 조회
 - **이슈 자동 감지**: 전담인력 누락/중복 이슈 자동 계산
 
 ## 기술 스택
 
-- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS
-- **Backend**: Supabase (PostgreSQL, Auth, Realtime)
-- **Authentication**: Google OAuth
-
-## 실행 방법
-
-### 1. 의존성 설치
-```bash
-npm install
-```
-
-### 2. 환경 변수 설정
-`.env.local` 파일에 Supabase 연결 정보를 설정하세요:
-```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### 3. 개발 서버 실행
-```bash
-npm run dev
-```
-
-브라우저에서 http://localhost:3000 으로 접속하세요.
+- **Frontend**: Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL, Auth, Realtime, Storage)
+- **Authentication**: 이메일/비밀번호 (초대·코드 기반 가입, 셀프 회원가입 없음)
+- **이메일 발송**: Resend
 
 ## 데이터베이스 설정
 
@@ -53,9 +32,27 @@ Supabase SQL Editor에서 `supabase-schema.sql` 파일의 내용을 실행하여
 - **전담인력 누락**: DB에 이슈가 있지만 PDF 첨부 시 자동 해결
 - **전담인력 중복**: 동일 기업 내 여러 과정이 같은 전담인력 파일 사용 시 자동 감지
 
-### 3. 댓글 기능
+### 3. 댓글 & 이메일 알림
 - **첨부 요청 버튼**: 전담인력 이슈 시 센터가 기업에 첨부 요청
 - **담당자 확인 버튼**: 전담인력 중복 시 확인 요청
+
+댓글이 하나 저장(`INSERT`)될 때마다 클라이언트가 `/api/notify-comment`를 fire-and-forget으로 호출하고,
+서버가 그 댓글의 과정(course) → 기업(company) → **소속 센터**를 조회해서 "같은 회사 담당자 전원 +
+그 센터 담당자 전원"에게 이메일을 보낸다. **작성자 본인은 항상 제외**된다. 발송은 Resend(`src/lib/email.ts`)를
+쓰고, `RESEND_API_KEY`가 없으면 에러 없이 조용히 스킵된다(이메일 실패가 댓글 저장을 막지 않음).
+댓글 **수정/삭제는 알림이 가지 않는다** (INSERT 시점에만 발송).
+
+이메일이 발송되는 지점 7곳:
+
+| 화면 (컴포넌트) | 트리거 |
+|---|---|
+| 센터 (`CommentSection`) | 일반 댓글 작성 |
+| 센터 | "첨부 요청" 버튼 |
+| 센터 | "담당자 확인" 버튼 |
+| 기업 (`CompanyCommentSection`) | 일반 댓글 작성 |
+| 기업 | "조치 완료" 버튼 |
+| 센터 (`CourseApprovalActions`) | 승인 버튼 (자동 댓글) |
+| 센터 | 반려 확정 (자동 댓글, 반려 사유 포함) |
 
 ### 4. 첨부된 PDF 파일 목록
 | 기업 | 과정 | 사업계획서 | 전담인력등록 |
