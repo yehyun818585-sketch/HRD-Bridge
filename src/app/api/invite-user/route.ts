@@ -6,6 +6,10 @@ import { createAdminClient } from '@/lib/supabase-admin'
 // 이 경로로만 계정이 생성된다. company_id는 초대 메일의 사용자 메타데이터에 실어 보내고,
 // 가입 완료 시 handle_new_user() 트리거가 그대로 profiles에 반영한다.
 // (센터 계정은 이 API가 아니라 /api/claim-center-role의 코드 검증으로 생성된다.)
+//
+// 회사는 센터가 이름으로 직접 지정한다 - 내 센터 소속에 같은 이름 회사가 있으면 거기로
+// 초대하고, 없으면(신규 회사) 그 자리에서 만든다. DB 작업은 claim-center-role과 마찬가지로
+// 관리자 클라이언트로 수행해 RLS 정책 상태와 무관하게 항상 동작하게 한다.
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -20,28 +24,16 @@ export async function POST(request: NextRequest) {
     .eq('id', user.id)
     .single()
 
-  if (callerProfile?.role !== 'center') {
+  if (callerProfile?.role !== 'center' || !callerProfile.center_id) {
     return NextResponse.json({ error: '센터 담당자만 초대할 수 있습니다.' }, { status: 403 })
   }
 
   const body = await request.json().catch(() => null)
   const email = typeof body?.email === 'string' ? body.email.trim() : ''
-  const companyId = typeof body?.companyId === 'string' ? body.companyId : ''
+  const companyName = typeof body?.companyName === 'string' ? body.companyName.trim().replace(/\s+/g, ' ') : ''
 
-  if (!email || !companyId) {
+  if (!email || !companyName) {
     return NextResponse.json({ error: '이메일과 소속 회사를 올바르게 입력해주세요.' }, { status: 400 })
-  }
-
-  // UI 드롭다운은 내 센터 회사만 보여주지만, API를 직접 호출해 다른 센터 회사에
-  // 초대를 보내는 것까지 서버에서 막는다.
-  const { data: targetCompany } = await supabase
-    .from('companies')
-    .select('center_id')
-    .eq('id', companyId)
-    .single()
-
-  if (!targetCompany || targetCompany.center_id !== callerProfile.center_id) {
-    return NextResponse.json({ error: '소속 센터의 회사에만 초대를 보낼 수 있습니다.' }, { status: 403 })
   }
 
   let admin
@@ -52,6 +44,33 @@ export async function POST(request: NextRequest) {
       { error: 'SUPABASE_SERVICE_ROLE_KEY가 설정되지 않아 초대를 보낼 수 없습니다. 환경 변수를 추가해주세요.' },
       { status: 500 }
     )
+  }
+
+  // 내 센터 소속에서 같은 이름 회사를 찾고, 없으면 새로 만든다.
+  const { data: existingCompany, error: findError } = await admin
+    .from('companies')
+    .select('id')
+    .eq('center_id', callerProfile.center_id)
+    .eq('name', companyName)
+    .maybeSingle()
+
+  if (findError) {
+    return NextResponse.json({ error: findError.message }, { status: 500 })
+  }
+
+  let companyId = existingCompany?.id
+
+  if (!companyId) {
+    const { data: createdCompany, error: createError } = await admin
+      .from('companies')
+      .insert({ name: companyName, center_id: callerProfile.center_id })
+      .select('id')
+      .single()
+
+    if (createError) {
+      return NextResponse.json({ error: createError.message }, { status: 500 })
+    }
+    companyId = createdCompany.id
   }
 
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {

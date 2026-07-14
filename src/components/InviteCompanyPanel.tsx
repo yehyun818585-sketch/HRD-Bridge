@@ -8,10 +8,13 @@ interface InviteCompanyPanelProps {
 
 // 센터 전용 - 기업 담당자 초대 패널. 기업은 셀프 회원가입이 불가능하고,
 // 이 화면에서 센터가 이메일을 입력해 초대해야만 계정이 생성된다.
+// 회사명은 직접 입력한다 - 아직 시스템에 없는 신규 회사(D사 등)도 여기서 바로
+// 추가되어야 하므로 기존 회사 목록으로 제한된 드롭다운을 쓰지 않는다.
+// 기존 회사명은 datalist로 자동완성만 제공해 오타로 중복 생성되는 걸 줄인다.
 // (센터 계정은 이 패널이 아니라 /login의 "센터 가입" 코드 입력으로 생성된다.)
 export default function InviteCompanyPanel({ companies }: InviteCompanyPanelProps) {
   const [email, setEmail] = useState('')
-  const [companyId, setCompanyId] = useState(companies[0]?.id ?? '')
+  const [companyName, setCompanyName] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -24,7 +27,7 @@ export default function InviteCompanyPanel({ companies }: InviteCompanyPanelProp
       const res = await fetch('/api/invite-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, companyId }),
+        body: JSON.stringify({ email, companyName: companyName.trim() }),
       })
       const data = await res.json()
 
@@ -33,6 +36,7 @@ export default function InviteCompanyPanel({ companies }: InviteCompanyPanelProp
       } else {
         setMessage({ type: 'success', text: `${email}로 초대 메일을 보냈습니다.` })
         setEmail('')
+        setCompanyName('')
       }
     } catch {
       setMessage({ type: 'error', text: '초대 요청 중 오류가 발생했습니다.' })
@@ -43,7 +47,7 @@ export default function InviteCompanyPanel({ companies }: InviteCompanyPanelProp
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
       <h2 className="text-sm font-semibold text-gray-700 mb-1">기업 담당자 초대</h2>
-      <p className="text-xs text-gray-500 mb-4">기업 담당자는 셀프 회원가입이 불가능합니다. 여기서 초대해야만 계정이 생성됩니다.</p>
+      <p className="text-xs text-gray-500 mb-4">기업 담당자는 셀프 회원가입이 불가능합니다. 여기서 초대해야만 계정이 생성됩니다. 아직 등록되지 않은 회사명을 입력하면 새 회사로 추가됩니다.</p>
 
       <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-[220px]">
@@ -60,16 +64,20 @@ export default function InviteCompanyPanel({ companies }: InviteCompanyPanelProp
 
         <div>
           <label className="block text-xs text-gray-500 mb-1">소속 회사</label>
-          <select
-            value={companyId}
-            onChange={(e) => setCompanyId(e.target.value)}
+          <input
+            type="text"
+            list="existing-companies"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="예: D사 (신규면 새로 만들어집니다)"
             required
             className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          />
+          <datalist id="existing-companies">
             {companies.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.name} />
             ))}
-          </select>
+          </datalist>
         </div>
 
         <button
