@@ -1,5 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { getPdfFiles, checkStaffDuplication } from '@/lib/document-validation'
 
 interface Course {
   id: string
@@ -22,73 +24,8 @@ interface CourseFile {
   file_url: string
 }
 
-// PDF 파일 매핑 - 기업명 첫글자와 과정명 키워드로 PDF 파일 경로 결정
-const getPdfFiles = (companyName: string, courseName: string): { businessPlan?: string; staffRegistration?: string } => {
-  const companyPrefix = companyName.charAt(0).toUpperCase()
-  const lowerCourseName = courseName.toLowerCase()
-
-  if (companyPrefix === 'A') {
-    if (lowerCourseName.includes('ai') || lowerCourseName.includes('개발자 양성')) {
-      return {
-        businessPlan: '/files/A_AI개발자양성과정_사업계획서.pdf'
-        // staffRegistration 제거 - 실시간 파일 첨부 테스트용
-      }
-    }
-    if (lowerCourseName.includes('웹') || lowerCourseName.includes('웹개발')) {
-      return {
-        businessPlan: '/files/A_웹개발 실무과정_사업계획서.pdf',
-        staffRegistration: '/files/A_웹개발 실무과정_전담인력등록.pdf'
-      }
-    }
-  }
-
-  if (companyPrefix === 'B') {
-    if (lowerCourseName.includes('데이터') || lowerCourseName.includes('분석')) {
-      return {
-        businessPlan: '/files/B_데이터분석 실무_사업계획서.pdf',
-        staffRegistration: '/files/B_전담인력등록.pdf'
-      }
-    }
-    if (lowerCourseName.includes('클라우드') || lowerCourseName.includes('엔지니어')) {
-      return {
-        businessPlan: '/files/B_클라우드 엔지니어 과정_사업계획서.pdf',
-        staffRegistration: '/files/B_전담인력등록.pdf'
-      }
-    }
-  }
-
-  if (companyPrefix === 'C') {
-    if (lowerCourseName.includes('보안') || lowerCourseName.includes('정보보안')) {
-      return {
-        businessPlan: '/files/C_보안전문가 과정_사업계획서.pdf',
-        staffRegistration: '/files/C_정보보안 과정_전담인력등록.pdf'
-      }
-    }
-  }
-
-  return {}
-}
-
-// 전담인력 중복 여부 확인
-const checkStaffDuplication = (companyName: string, courses: Course[]): boolean => {
-  const staffFiles: string[] = []
-
-  for (const course of courses) {
-    const pdfFiles = getPdfFiles(companyName, course.name)
-    if (pdfFiles.staffRegistration) {
-      staffFiles.push(pdfFiles.staffRegistration)
-    }
-  }
-
-  if (staffFiles.length >= 2) {
-    const uniqueFiles = new Set(staffFiles)
-    return uniqueFiles.size < staffFiles.length
-  }
-
-  return false
-}
-
-// 과정별 유효 이슈 계산 (전담인력 누락/중복 자동 계산)
+// 과정별 유효 이슈 계산 (1단계: 파일명 매칭 기반의 빠른 개요용 신호일 뿐, 확정 판단이 아니다.
+// 문서 내용까지 대조한 확인됨/누락/불일치 결과는 과정 상세 페이지에서 확인한다.)
 const getEffectiveIssue = (
   companyName: string,
   course: Course,
@@ -117,6 +54,11 @@ const getEffectiveIssue = (
 
 export default async function CompaniesPage() {
   const supabase = await createServerSupabaseClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    redirect('/login')
+  }
 
   const { data: companies, error } = await supabase
     .from('companies')

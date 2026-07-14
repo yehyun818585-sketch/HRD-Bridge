@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import PdfViewerModal from '@/components/PdfViewerModal'
 import CompanyCommentSection from '@/components/CompanyCommentSection'
+import { getPdfFiles, checkStaffDuplication } from '@/lib/document-validation'
+import type { DocumentType } from '@/lib/document-validation'
+import { DOC_LABELS, STATUS_BADGE, fetchDocumentValidation, type DocValidation } from '@/lib/document-validation-client'
 
 interface Course {
   id: string
@@ -19,98 +22,6 @@ interface Company {
   id: string
   name: string
   courses: Course[]
-}
-
-// PDF 파일 매핑
-const getPdfFiles = (companyName: string, courseName: string): { businessPlan?: string; staffRegistration?: string } => {
-  const companyPrefix = companyName.charAt(0).toUpperCase()
-  const lowerCourseName = courseName.toLowerCase()
-
-  if (companyPrefix === 'A') {
-    if (lowerCourseName.includes('ai') || lowerCourseName.includes('개발자 양성')) {
-      return {
-        businessPlan: '/files/A_AI개발자양성과정_사업계획서.pdf'
-        // staffRegistration 제거 - 실시간 파일 첨부 테스트용
-      }
-    }
-    if (lowerCourseName.includes('웹') || lowerCourseName.includes('웹개발')) {
-      return {
-        businessPlan: '/files/A_웹개발 실무과정_사업계획서.pdf',
-        staffRegistration: '/files/A_웹개발 실무과정_전담인력등록.pdf'
-      }
-    }
-  }
-
-  if (companyPrefix === 'B') {
-    if (lowerCourseName.includes('데이터') || lowerCourseName.includes('분석')) {
-      return {
-        businessPlan: '/files/B_데이터분석 실무_사업계획서.pdf',
-        staffRegistration: '/files/B_전담인력등록.pdf'
-      }
-    }
-    if (lowerCourseName.includes('클라우드') || lowerCourseName.includes('엔지니어')) {
-      return {
-        businessPlan: '/files/B_클라우드 엔지니어 과정_사업계획서.pdf',
-        staffRegistration: '/files/B_전담인력등록.pdf'
-      }
-    }
-  }
-
-  if (companyPrefix === 'C') {
-    if (lowerCourseName.includes('보안') || lowerCourseName.includes('정보보안')) {
-      return {
-        businessPlan: '/files/C_보안전문가 과정_사업계획서.pdf',
-        staffRegistration: '/files/C_정보보안 과정_전담인력등록.pdf'
-      }
-    }
-  }
-
-  return {}
-}
-
-// 전담인력 중복 여부 확인
-const checkStaffDuplication = (companyName: string, courses: Course[]): boolean => {
-  const staffFiles: string[] = []
-
-  for (const course of courses) {
-    const pdfFiles = getPdfFiles(companyName, course.name)
-    if (pdfFiles.staffRegistration) {
-      staffFiles.push(pdfFiles.staffRegistration)
-    }
-  }
-
-  if (staffFiles.length >= 2) {
-    const uniqueFiles = new Set(staffFiles)
-    return uniqueFiles.size < staffFiles.length
-  }
-
-  return false
-}
-
-// 유효 이슈 계산 (전담인력 누락/중복 포함)
-const getEffectiveIssue = (
-  companyName: string,
-  course: Course,
-  courses: Course[],
-  uploadedFiles: Record<string, { businessPlan?: string; staffRegistration?: string }>
-): string | null => {
-  const staticPdfFiles = getPdfFiles(companyName, course.name)
-  const uploadedFileTypes = uploadedFiles[course.id] || {}
-
-  const hasStaffFile = staticPdfFiles.staffRegistration || uploadedFileTypes.staffRegistration
-  const hasStaffDuplication = checkStaffDuplication(companyName, courses)
-
-  // 전담인력 파일이 없으면 "전담인력 등록 누락" 표시
-  if (!hasStaffFile) {
-    return '전담인력 등록 누락'
-  }
-
-  // 전담인력 중복 이슈 (파일이 있을 때만)
-  if (hasStaffDuplication) {
-    return '전담인력 중복'
-  }
-
-  return null
 }
 
 export default function MyCompanyPage() {
@@ -256,6 +167,34 @@ export default function MyCompanyPage() {
       supabase.removeChannel(channel)
     }
   }, [company])
+
+  // 기존 PDF와 업로드된 파일을 합침
+  const basePdfFiles = company && selectedCourse ? getPdfFiles(company.name, selectedCourse.name) : {}
+  const courseUploadedFiles = selectedCourse ? uploadedFiles[selectedCourse.id] || {} : {}
+  const pdfFiles: { businessPlan?: string; staffRegistration?: string } = { ...basePdfFiles, ...courseUploadedFiles }
+
+  const [validations, setValidations] = useState<Partial<Record<DocumentType, DocValidation>>>({})
+  const [isValidating, setIsValidating] = useState(true)
+
+  // 2·3단계 검증: 파일명 매칭(1단계)을 통과한 문서의 내용을 추출해 기준 서식과 대조한다.
+  // 여기서 나오는 결과는 확인됨/누락/불일치 3단계뿐이며, 최종 승인 여부는 담당자가 판단한다.
+  useEffect(() => {
+    let cancelled = false
+    setIsValidating(true)
+
+    Promise.all([
+      fetchDocumentValidation(pdfFiles.businessPlan, 'businessPlan'),
+      fetchDocumentValidation(pdfFiles.staffRegistration, 'staffRegistration'),
+    ]).then(([businessPlan, staffRegistration]) => {
+      if (cancelled) return
+      setValidations({ businessPlan, staffRegistration })
+      setIsValidating(false)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [pdfFiles.businessPlan, pdfFiles.staffRegistration])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -430,11 +369,6 @@ export default function MyCompanyPage() {
 
   if (!company) return null
 
-  // 기존 PDF와 업로드된 파일을 합침
-  const basePdfFiles = selectedCourse ? getPdfFiles(company.name, selectedCourse.name) : {}
-  const courseUploadedFiles = selectedCourse ? uploadedFiles[selectedCourse.id] || {} : {}
-  const pdfFiles = { ...basePdfFiles, ...courseUploadedFiles }
-
   return (
     <div className="space-y-6">
       {/* 헤더 */}
@@ -503,10 +437,21 @@ export default function MyCompanyPage() {
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-500 mb-1">주요 이슈</p>
                     {(() => {
-                      const effectiveIssue = company ? getEffectiveIssue(company.name, selectedCourse, company.courses, uploadedFiles) : selectedCourse.issues
+                      const issueMessages: string[] = []
+                      const hasStaffDuplication = company ? checkStaffDuplication(company.name, company.courses) : false
+                      if (hasStaffDuplication && validations.staffRegistration?.status === '확인됨') {
+                        issueMessages.push('전담인력 중복')
+                      }
+                      ;(['businessPlan', 'staffRegistration'] as DocumentType[]).forEach((docType) => {
+                        const result = validations[docType]
+                        if (result && result.status !== '확인됨') {
+                          issueMessages.push(`${DOC_LABELS[docType]} ${result.status}: ${result.reason}`)
+                        }
+                      })
+                      const effectiveIssue = issueMessages.length > 0 ? issueMessages.join(' / ') : null
                       return (
                         <p className={`font-medium ${effectiveIssue ? 'text-red-600' : 'text-gray-400'}`}>
-                          {effectiveIssue || '이슈 없음'}
+                          {isValidating ? '검증 중...' : effectiveIssue || '이슈 없음'}
                         </p>
                       )
                     })()}
@@ -515,96 +460,75 @@ export default function MyCompanyPage() {
 
                 {/* 서류 제출 현황 */}
                 <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">서류 제출 현황</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">서류 제출 현황 (파일명 → 문서 내용 → 기준 서식 대조)</h3>
                   <div className="space-y-3">
-                    {/* 사업계획서 */}
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        {pdfFiles.businessPlan ? (
-                          <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                        <span className="text-gray-700">사업계획서</span>
-                        {pdfFiles.businessPlan && (
-                          <span className="text-xs text-green-600 font-medium">첨부됨</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {pdfFiles.businessPlan ? (
-                          <>
-                            <PdfViewerModal pdfUrl={pdfFiles.businessPlan} />
-                            {/* DB에서 업로드한 파일만 삭제 가능 (기본 파일 제외) */}
-                            {courseUploadedFiles.businessPlan && (
-                              <button
-                                onClick={() => handleFileDelete('businessPlan')}
-                                className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition"
-                              >
-                                삭제
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => handleFileUpload('businessPlan')}
-                            disabled={uploadingType === 'businessPlan'}
-                            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-                          >
-                            {uploadingType === 'businessPlan' ? '업로드 중...' : '파일 첨부'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    {(['businessPlan', 'staffRegistration'] as DocumentType[]).map((docType) => {
+                      const fileUrl = pdfFiles[docType]
+                      const result = validations[docType]
+                      const canDelete = Boolean(courseUploadedFiles[docType])
 
-                    {/* 전담인력 등록 */}
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        {pdfFiles.staffRegistration ? (
-                          <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                        <span className={pdfFiles.staffRegistration ? 'text-gray-700' : 'text-red-600'}>
-                          전담인력 등록
-                        </span>
-                        {pdfFiles.staffRegistration && (
-                          <span className="text-xs text-green-600 font-medium">첨부됨</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {pdfFiles.staffRegistration ? (
-                          <>
-                            <PdfViewerModal pdfUrl={pdfFiles.staffRegistration} />
-                            {/* DB에서 업로드한 파일만 삭제 가능 (기본 파일 제외) */}
-                            {courseUploadedFiles.staffRegistration && (
+                      return (
+                        <div key={docType} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {isValidating ? (
+                              <svg className="w-5 h-5 text-gray-300 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                              </svg>
+                            ) : result?.status === '확인됨' ? (
+                              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            ) : result?.status === '불일치' ? (
+                              <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.492-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                            <span className="text-gray-700">{DOC_LABELS[docType]}</span>
+                            {!isValidating && result && (
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[result.status]}`}>
+                                {result.status}
+                              </span>
+                            )}
+                            {!isValidating && result && result.status !== '확인됨' && (
+                              <span className="text-xs text-gray-500 basis-full">{result.reason}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {fileUrl ? (
+                              <>
+                                <PdfViewerModal pdfUrl={fileUrl} />
+                                {/* DB에서 업로드한 파일만 삭제 가능 (기본 파일 제외) */}
+                                {canDelete && (
+                                  <button
+                                    onClick={() => handleFileDelete(docType)}
+                                    className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition"
+                                  >
+                                    삭제
+                                  </button>
+                                )}
+                              </>
+                            ) : (
                               <button
-                                onClick={() => handleFileDelete('staffRegistration')}
-                                className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition"
+                                onClick={() => handleFileUpload(docType)}
+                                disabled={uploadingType === docType}
+                                className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
                               >
-                                삭제
+                                {uploadingType === docType ? '업로드 중...' : '파일 첨부'}
                               </button>
                             )}
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => handleFileUpload('staffRegistration')}
-                            disabled={uploadingType === 'staffRegistration'}
-                            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-                          >
-                            {uploadingType === 'staffRegistration' ? '업로드 중...' : '파일 첨부'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
+                  <p className="text-xs text-gray-400 mt-3">
+                    * 자동 검증은 참고용 대조 결과입니다. 최종 서류 적합성 판단은 담당자가 직접 확인해주세요.
+                  </p>
                 </div>
               </div>
 
