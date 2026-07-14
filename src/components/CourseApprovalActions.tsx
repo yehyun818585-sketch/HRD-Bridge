@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { notifyComment } from '@/lib/notify-client'
 
 interface CourseApprovalActionsProps {
   courseId: string
@@ -39,11 +40,15 @@ export default function CourseApprovalActions({ courseId, courseName }: CourseAp
 
   const postComment = async (content: string) => {
     if (!userId) return
-    await supabase.from('comments').insert({
+    const { data } = await supabase.from('comments').insert({
       course_id: courseId,
       user_id: userId,
       content,
-    })
+    }).select().single()
+
+    if (data) {
+      notifyComment(data.id)
+    }
   }
 
   const handleApprove = async () => {

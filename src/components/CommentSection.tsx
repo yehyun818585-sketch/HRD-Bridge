@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
+import { notifyComment } from '@/lib/notify-client'
 
 interface Comment {
   id: string
@@ -212,6 +213,7 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
       }
       setComments((prev) => [...prev, newCommentData])
       setNewComment('')
+      notifyComment(data.id)
     }
     setLoading(false)
   }
@@ -305,6 +307,7 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
         user_role: profile?.role || null,
       }
       setComments((prev) => [...prev, newCommentData])
+      notifyComment(data.id)
     }
     setLoading(false)
   }
@@ -339,6 +342,7 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
         user_role: profile?.role || null,
       }
       setComments((prev) => [...prev, newCommentData])
+      notifyComment(data.id)
     }
     setLoading(false)
   }

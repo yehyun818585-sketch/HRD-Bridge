@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { notifyComment } from '@/lib/notify-client'
 
 interface Comment {
   id: string
@@ -175,6 +176,7 @@ export default function CompanyCommentSection({ courseId, courseName, companyNam
       }
       setComments((prev) => [...prev, newCommentData])
       setNewComment('')
+      notifyComment(data.id)
     }
     setLoading(false)
   }
@@ -209,6 +211,7 @@ export default function CompanyCommentSection({ courseId, courseName, companyNam
       }
       setComments((prev) => [...prev, newCommentData])
       setUnreadCount(0) // 조치 완료 시 읽음 처리
+      notifyComment(data.id)
     }
     setLoading(false)
   }
