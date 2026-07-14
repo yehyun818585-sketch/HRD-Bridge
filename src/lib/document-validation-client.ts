@@ -18,6 +18,12 @@ export const STATUS_BADGE: Record<ValidationStatus, string> = {
   불일치: 'bg-amber-100 text-amber-700',
 }
 
+// 기업이 작성해서 첨부할 수 있도록 제공하는 빈 양식 (scripts/generate-demo-pdfs.mjs로 생성)
+export const TEMPLATE_URLS: Record<DocumentType, string> = {
+  businessPlan: '/files/templates/사업계획서_양식.pdf',
+  staffRegistration: '/files/templates/전담인력등록_양식.pdf',
+}
+
 // 브라우저(클라이언트 컴포넌트)에서는 PDF를 직접 파싱할 수 없으므로
 // /api/validate-document를 통해 2·3단계(문서 내용 확인, 기준 서식 대조) 결과를 받아온다.
 export async function fetchDocumentValidation(

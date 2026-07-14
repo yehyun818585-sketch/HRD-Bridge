@@ -7,7 +7,7 @@ import PdfViewerModal from '@/components/PdfViewerModal'
 import CompanyCommentSection from '@/components/CompanyCommentSection'
 import { getPdfFiles, checkStaffDuplication } from '@/lib/document-validation'
 import type { DocumentType } from '@/lib/document-validation'
-import { DOC_LABELS, STATUS_BADGE, fetchDocumentValidation, type DocValidation } from '@/lib/document-validation-client'
+import { DOC_LABELS, STATUS_BADGE, TEMPLATE_URLS, fetchDocumentValidation, type DocValidation } from '@/lib/document-validation-client'
 
 interface Course {
   id: string
@@ -497,6 +497,13 @@ export default function MyCompanyPage() {
                             {!isValidating && result && result.status !== '확인됨' && (
                               <span className="text-xs text-gray-500 basis-full">{result.reason}</span>
                             )}
+                            <a
+                              href={TEMPLATE_URLS[docType]}
+                              download
+                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              양식 다운로드
+                            </a>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {fileUrl ? (

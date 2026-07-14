@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = path.join(__dirname, '..', 'public', 'files')
+const TEMPLATE_DIR = path.join(OUT_DIR, 'templates')
 
 const FONT_REGULAR = 'C:/Windows/Fonts/malgun.ttf'
 const FONT_BOLD = 'C:/Windows/Fonts/malgunbd.ttf'
@@ -18,11 +19,11 @@ const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2
 const ACCENT = '#7a4a24'
 const ACCENT_BG = '#f3ece2'
 
-function newDoc(outFile) {
+function newDoc(outFile, dir = OUT_DIR) {
   const doc = new PDFDocument({ size: 'A4', margin: MARGIN })
   doc.registerFont('KR', FONT_REGULAR)
   doc.registerFont('KR-Bold', FONT_BOLD)
-  doc.pipe(fs.createWriteStream(path.join(OUT_DIR, outFile)))
+  doc.pipe(fs.createWriteStream(path.join(dir, outFile)))
   return doc
 }
 
@@ -114,14 +115,24 @@ function drawNote(doc, y, text) {
   return doc.y + 14
 }
 
-function drawKeyValueLines(doc, y, lines) {
-  doc.font('KR').fontSize(10.5)
-  let curY = y
-  for (const line of lines) {
-    doc.text(line, MARGIN, curY)
-    curY = doc.y + 6
+// 빈 양식용: 손으로 채워 넣을 밑줄 한 줄
+function drawBlankLine(doc, x, y, width) {
+  doc.moveTo(x, y).lineTo(x + width, y).lineWidth(0.75).stroke('#aaaaaa')
+}
+
+// 빈 양식용: drawSection과 같은 라벨 스타일이지만 텍스트 대신 채움줄(lineCount개)을 그린다
+function drawBlankSection(doc, y, index, label, lineCount = 1) {
+  doc.rect(MARGIN, y, 4, 15).fill(ACCENT)
+  doc.fillColor('#000000').font('KR-Bold').fontSize(11)
+    .text(`${index}. ${label}`, MARGIN + 10, y)
+
+  let cursorY = doc.y + 10
+  for (let i = 0; i < lineCount; i++) {
+    drawBlankLine(doc, MARGIN + 10, cursorY, CONTENT_WIDTH - 10)
+    cursorY += 20
   }
-  return curY
+  doc.fillColor('#000000')
+  return cursorY + 6
 }
 
 function drawFooter(doc, pageNum) {
@@ -144,6 +155,27 @@ function drawClosingSignature(doc, y, { date, companyName, representativeName })
   doc.text(`신청기업명: ${companyName}`, MARGIN, curY, { width: half })
   doc.text(`대표 성명: ${representativeName}        (인)`, MARGIN + half, curY, { width: half, align: 'right' })
   curY = doc.y + 10
+
+  doc.font('KR-Bold').fontSize(12)
+    .text('한국산업인력공단 귀중', MARGIN, curY, { width: CONTENT_WIDTH, align: 'center' })
+
+  return doc.y + 6
+}
+
+// 빈 양식용 서명란 - 값 대신 채움줄만 그린다
+function drawBlankClosingSignature(doc, y) {
+  y = ensureSpace(doc, y, 68)
+  doc.font('KR').fontSize(11)
+    .text('20        년        월        일', MARGIN, y, { width: CONTENT_WIDTH, align: 'center' })
+  let curY = doc.y + 12
+
+  const half = CONTENT_WIDTH / 2
+  doc.text('신청기업명:', MARGIN, curY, { width: 90 })
+  drawBlankLine(doc, MARGIN + 90, curY + 12, half - 90 - 15)
+  doc.text('대표 성명:', MARGIN + half, curY, { width: 90 })
+  drawBlankLine(doc, MARGIN + half + 90, curY + 12, half - 90 - 40)
+  doc.text('(인)', MARGIN + CONTENT_WIDTH - 32, curY)
+  curY += 22
 
   doc.font('KR-Bold').fontSize(12)
     .text('한국산업인력공단 귀중', MARGIN, curY, { width: CONTENT_WIDTH, align: 'center' })
@@ -208,6 +240,61 @@ function renderStaffRegistration(data) {
     companyName: data.companyName,
     representativeName: info.representativeName,
   })
+
+  drawFooter(doc, 1)
+  doc.end()
+}
+
+// 기업이 다운로드해서 작성 후 첨부할 수 있는 빈 양식 - 내용은 비워두고 서식만 제공한다.
+// 공동훈련센터는 현재 서중대학교 산학협력단 1곳뿐이라 미리 채워둔다.
+function renderBusinessPlanTemplate() {
+  const doc = newDoc('사업계획서_양식.pdf', TEMPLATE_DIR)
+
+  let y = drawFormTab(doc, '서식2', '사업계획서 (일학습병행 신청 공고 서식2 참고 양식) - 빈 양식')
+  y = drawTitle(doc, y, '사 업 계 획 서')
+
+  y = drawBlankSection(doc, y, 1, '프로그램 명')
+  y = drawBlankSection(doc, y, 2, '시행 목적', 2)
+  y = drawBlankSection(doc, y, 3, '참여 기업 (기업명 / 대표자명 / 사업자등록번호 / 업종)', 2)
+  y = drawSection(doc, y, 4, '공동훈련센터', ['서중대학교 산학협력단'])
+  y = drawBlankSection(doc, y, 5, '참여 인원', 2)
+  y = drawBlankSection(doc, y, 6, '훈련 유형')
+  y = drawBlankSection(doc, y, 7, '교육 시행 장소', 2)
+  y = drawSection(doc, y, 8, '교육 회차별 계획 요약', [])
+  y = drawTable(
+    doc,
+    y,
+    ['회차', '교육 내용', '구분'],
+    [1, 2, 3, 4, 5, 6].map((n) => [`${n}회차`, '', '']),
+    [55, 345, 95]
+  )
+
+  drawBlankClosingSignature(doc, y)
+
+  drawFooter(doc, 1)
+  doc.end()
+}
+
+function renderStaffRegistrationTemplate() {
+  const doc = newDoc('전담인력등록_양식.pdf', TEMPLATE_DIR)
+
+  let y = drawFormTab(doc, '전담서식', '전담인력 등록 증빙서 (일학습병행 신청 공고 서식 참고 양식) - 빈 양식')
+  y = drawTitle(doc, y, '전담인력 등록 증빙서')
+
+  y = drawBlankSection(doc, y, 1, '과정명')
+  y = drawBlankSection(doc, y, 2, '참여 기업')
+  y = drawSection(doc, y, 3, '전담인력 현황', [])
+  y = drawTable(
+    doc,
+    y,
+    ['구분', '성명', '직위', '담당 업무', '연락처'],
+    [['전담인력', '', '', '', '']],
+    [60, 65, 120, 140, 110]
+  )
+
+  y = drawNote(doc, y, '상기 전담인력은 본 과정 운영을 위해 지정되었음을 확인합니다.')
+
+  drawBlankClosingSignature(doc, y)
 
   drawFooter(doc, 1)
   doc.end()
@@ -297,7 +384,7 @@ const businessPlans = [
     participants: ['총 8명 (만 23세 ~ 29세)', '컴퓨터공학 및 정보통신 관련 전공 졸업 예정자'],
     trainingType: 'OJT 중심',
     location: ['B사 서버 관제실 및 기술지원팀'],
-    submittedDate: '2024년 8월 12일',
+    submittedDate: '2024년 8월 10일',
     curriculum: [
       ['1회차', '부서 배치 및 자사 클라우드 아키텍처 분석', 'OJT'],
       ['2회차', '리눅스(Linux) 서버 접속 및 운영 환경 세팅', 'OJT'],
@@ -335,21 +422,21 @@ const staffRegistrations = [
     courseName: '웹개발 실무과정 (Full-Stack 양성)',
     companyName: 'A사',
     staff: { name: '김민수', position: '책임연구원', duty: '훈련 운영 및 멘토링', contact: '010-9876-5432' },
-    confirmDate: '2024-08-01',
+    confirmDate: '2024-07-25',
   },
   {
     file: 'B_전담인력등록.pdf',
     courseName: '클라우드 인프라 구축 및 엔지니어 실무 과정',
     companyName: 'B사',
     staff: { name: '박진호', position: '현장 훈련(OJT) 총괄', duty: '훈련 운영 및 멘토링', contact: '010-5555-7777' },
-    confirmDate: '2024-08-16',
+    confirmDate: '2024-08-10',
   },
   {
     file: 'C_정보보안 과정_전담인력등록.pdf',
     courseName: '정보보안 전문가 과정',
     companyName: 'C사',
     staff: { name: '최영희', position: '수석', duty: '교육 운영 및 성과관리', contact: '010-1111-2222' },
-    confirmDate: '2024-09-20',
+    confirmDate: '2024-09-15',
   },
 ]
 
@@ -358,7 +445,11 @@ if (!fs.existsSync(FONT_REGULAR) || !fs.existsSync(FONT_BOLD)) {
   process.exit(1)
 }
 
+fs.mkdirSync(TEMPLATE_DIR, { recursive: true })
+
 businessPlans.forEach(renderBusinessPlan)
 staffRegistrations.forEach(renderStaffRegistration)
+renderBusinessPlanTemplate()
+renderStaffRegistrationTemplate()
 
-console.log(`생성 완료: 사업계획서 ${businessPlans.length}건, 전담인력 등록 ${staffRegistrations.length}건 → ${OUT_DIR}`)
+console.log(`생성 완료: 사업계획서 ${businessPlans.length}건, 전담인력 등록 ${staffRegistrations.length}건, 빈 양식 2건 → ${OUT_DIR}`)
