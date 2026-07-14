@@ -161,6 +161,35 @@ export default function MyCompanyPage() {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'courses',
+        },
+        (payload) => {
+          const updatedCourse = payload.new as { id: string; status: string; stage: string; issues: string | null }
+          if (!company.courses.some(c => c.id === updatedCourse.id)) return
+
+          setCompany(prev => {
+            if (!prev) return null
+            return {
+              ...prev,
+              courses: prev.courses.map(c =>
+                c.id === updatedCourse.id
+                  ? { ...c, status: updatedCourse.status, stage: updatedCourse.stage, issues: updatedCourse.issues }
+                  : c
+              )
+            }
+          })
+          setSelectedCourse(prev =>
+            prev && prev.id === updatedCourse.id
+              ? { ...prev, status: updatedCourse.status, stage: updatedCourse.stage, issues: updatedCourse.issues }
+              : prev
+          )
+        }
+      )
       .subscribe()
 
     return () => {
@@ -373,17 +402,30 @@ export default function MyCompanyPage() {
     <div className="space-y-6">
       {/* 헤더 */}
       <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-6 text-white">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
-            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
+              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-green-100 text-sm">기업 담당자 포털</p>
+              <h1 className="text-2xl font-bold">{company.name}</h1>
+              <p className="text-green-100">총 {company.courses.length}개 과정 운영중</p>
+            </div>
+          </div>
+          <a
+            href="https://pdms.ncs.go.kr/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 px-3 py-2 text-sm bg-white/15 hover:bg-white/25 rounded-lg transition flex items-center gap-1.5"
+          >
+            공단 제출 사이트(PDMS)
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
-          </div>
-          <div>
-            <p className="text-green-100 text-sm">기업 담당자 포털</p>
-            <h1 className="text-2xl font-bold">{company.name}</h1>
-            <p className="text-green-100">총 {company.courses.length}개 과정 운영중</p>
-          </div>
+          </a>
         </div>
       </div>
 
@@ -457,6 +499,23 @@ export default function MyCompanyPage() {
                     })()}
                   </div>
                 </div>
+
+                {selectedCourse.status === 'approved' && (
+                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between gap-4 flex-wrap">
+                    <div>
+                      <p className="font-medium text-green-800">센터 승인 완료</p>
+                      <p className="text-sm text-green-700">아래 서류를 다운로드하여 공단 제출 사이트에 첨부해주세요.</p>
+                    </div>
+                    <a
+                      href="https://pdms.ncs.go.kr/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                    >
+                      공단 제출 사이트(PDMS) 바로가기
+                    </a>
+                  </div>
+                )}
 
                 {/* 서류 제출 현황 */}
                 <div className="mt-6 pt-6 border-t border-gray-200">

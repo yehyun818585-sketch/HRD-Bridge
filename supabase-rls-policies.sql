@@ -72,6 +72,16 @@ CREATE POLICY "기업만 과정 수정" ON courses
     )
   );
 
+-- 과정: 센터 역할은 승인/반려(status, stage) 처리를 위해 모든 과정 수정 가능
+CREATE POLICY "센터는 과정 승인 처리 가능" ON courses
+  FOR UPDATE TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'center'
+    )
+  );
+
 -- 댓글: 인증된 사용자면 작성 가능, 본인 댓글만 수정/삭제
 CREATE POLICY "댓글 작성" ON comments
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);

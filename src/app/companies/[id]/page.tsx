@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import CommentSection from '@/components/CommentSection'
 import CourseFilesSection from '@/components/CourseFilesSection'
+import CourseApprovalActions from '@/components/CourseApprovalActions'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { getPdfFiles, checkStaffDuplication } from '@/lib/document-validation'
@@ -153,7 +154,7 @@ export default async function CompanyDetailPage({
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    읽기 전용
+                    서류 내용은 읽기 전용, 승인/반려만 가능
                   </span>
                 </div>
 
@@ -167,6 +168,12 @@ export default async function CompanyDetailPage({
                     <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(selectedCourse.status)}`}>
                       {getStatusText(selectedCourse.status)}
                     </span>
+                  </div>
+                  <div className="md:col-span-2">
+                    <CourseApprovalActions
+                      courseId={selectedCourse.id}
+                      courseName={selectedCourse.name}
+                    />
                   </div>
                 </div>
 
