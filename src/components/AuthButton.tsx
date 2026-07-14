@@ -28,6 +28,9 @@ export default function AuthButton() {
 
   const signOut = async () => {
     await supabase.auth.signOut()
+    // 로그아웃 후 클라이언트 컴포넌트(/my-company 등)에 남아있는 이전 데이터가
+    // 화면에 계속 보이는 문제가 있어, router.refresh()만으로는 부족하고 페이지를 벗어나야 한다.
+    router.push('/login')
     router.refresh()
   }
 

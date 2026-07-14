@@ -105,7 +105,7 @@ BEGIN
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', NEW.email),
-    'center'  -- 기본 역할: 센터 (읽기 전용)
+    NULL  -- 역할 없음: 초대코드 등으로 별도 배정 전까지 접근 권한 없음
   );
   RETURN NEW;
 END;
