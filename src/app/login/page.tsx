@@ -44,9 +44,20 @@ export default function LoginPage() {
       // 1) 계정 생성 - 이 시점엔 role이 없는(권한 없음) 상태로 만들어진다.
       const { error: signUpError } = await supabase.auth.signUp({ email, password })
       if (signUpError) {
-        setError(signUpError.message)
-        setLoading(false)
-        return
+        // 이전 시도에서 계정은 만들어졌지만 역할 부여(2번 단계)에서 실패했을 수 있다 -
+        // 같은 이메일/비밀번호로 로그인해서 이어서 진행한다.
+        if (signUpError.message.toLowerCase().includes('already registered')) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+          if (signInError) {
+            setError('이미 가입된 이메일입니다. 비밀번호가 다르면 로그인 화면에서 시도해주세요.')
+            setLoading(false)
+            return
+          }
+        } else {
+          setError(signUpError.message)
+          setLoading(false)
+          return
+        }
       }
 
       // 2) 센터 가입 코드는 서버(/api/claim-center-role)에서만 비교하고,
