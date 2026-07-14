@@ -100,12 +100,13 @@ CREATE POLICY "본인 댓글 삭제" ON comments
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, name, role)
+  INSERT INTO public.profiles (id, email, name, role, company_id)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', NEW.email),
-    NULL  -- 역할 없음: 초대코드 등으로 별도 배정 전까지 접근 권한 없음
+    NEW.raw_user_meta_data->>'role',  -- 초대 메타데이터의 role, 없으면 NULL(권한 없음)
+    NULLIF(NEW.raw_user_meta_data->>'company_id', '')::uuid  -- 초대 메타데이터의 company_id, 없으면 NULL
   );
   RETURN NEW;
 END;

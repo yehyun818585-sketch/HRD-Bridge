@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getPdfFiles, checkStaffDuplication } from '@/lib/document-validation'
+import InviteCompanyPanel from '@/components/InviteCompanyPanel'
 
 interface Course {
   id: string
@@ -58,6 +59,17 @@ export default async function CompaniesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     redirect('/login')
+  }
+
+  // 센터 전용 페이지 - 로그인만으로는 부족하고 role도 center여야 한다.
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (callerProfile?.role !== 'center') {
+    redirect('/my-company')
   }
 
   const { data: companies, error } = await supabase
@@ -149,6 +161,8 @@ export default async function CompaniesPage() {
           </div>
         </div>
       </div>
+
+      <InviteCompanyPanel companies={(companies ?? []).map((c) => ({ id: c.id, name: c.name }))} />
 
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">기업 현황</h1>

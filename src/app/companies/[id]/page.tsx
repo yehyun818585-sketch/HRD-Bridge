@@ -39,6 +39,17 @@ export default async function CompanyDetailPage({
     redirect('/login')
   }
 
+  // 센터 전용 페이지 - 로그인만으로는 부족하고 role도 center여야 한다.
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (callerProfile?.role !== 'center') {
+    redirect('/my-company')
+  }
+
   const { data: company, error } = await supabase
     .from('companies')
     .select(`
