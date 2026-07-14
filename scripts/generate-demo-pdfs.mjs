@@ -185,8 +185,9 @@ function renderBusinessPlan(data) {
 
 function renderStaffRegistration(data) {
   const doc = newDoc(data.file)
+  const info = COMPANY_INFO[data.companyName]
 
-  let y = drawFormTab(doc, '전담서식', '전담인력 등록 증빙서 (참고 양식)')
+  let y = drawFormTab(doc, '전담서식', '전담인력 등록 증빙서 (일학습병행 신청 공고 서식 참고 양식)')
   y = drawTitle(doc, y, '전담인력 등록 증빙서')
 
   y = drawSection(doc, y, 1, '과정명', [data.courseName])
@@ -197,14 +198,25 @@ function renderStaffRegistration(data) {
     y,
     ['구분', '성명', '직위', '담당 업무', '연락처'],
     [['전담인력', data.staff.name, data.staff.position, data.staff.duty, data.staff.contact]],
-    [65, 70, 90, 160, 110]
+    [60, 65, 120, 140, 110]
   )
 
   y = drawNote(doc, y, '상기 전담인력은 본 과정 운영을 위해 지정되었음을 확인합니다.')
-  drawKeyValueLines(doc, y, [`기업명: ${data.companyName}`, `확인일자: ${data.confirmDate}`])
+
+  drawClosingSignature(doc, y, {
+    date: formatDate(data.confirmDate),
+    companyName: data.companyName,
+    representativeName: info.representativeName,
+  })
 
   drawFooter(doc, 1)
   doc.end()
+}
+
+// 'YYYY-MM-DD' -> 'YYYY년 M월 D일' (서명란 날짜 표기를 사업계획서와 통일)
+function formatDate(isoDate) {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  return `${year}년 ${month}월 ${day}일`
 }
 
 // 현재 공동훈련센터가 1곳(서중대학교 산학협력단)으로 통일되어 있어, 참여 기업 정보도 이 맵에서 관리한다.
