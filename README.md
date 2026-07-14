@@ -15,54 +15,19 @@
 
 ## 기술 스택
 
-- **Frontend**: Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS
-- **Backend**: Supabase (PostgreSQL, Auth, Realtime, Storage)
-- **Authentication**: 이메일/비밀번호 (초대·코드 기반 가입, 셀프 회원가입 없음)
-- **이메일 발송**: Resend
-- **PDF 생성**: pdfkit (데모 서류) / **빈 양식 생성**: docx (자료실 양식)
+| 분류 | 기술 | 역할 |
+|---|---|---|
+| 프레임워크 | Next.js 16 (App Router, Turbopack) | 화면 렌더링, 라우팅, API 라우트(서버 로직) 전부 담당 |
+| 언어/스타일 | TypeScript, Tailwind CSS | 타입 안정성 / 유틸리티 클래스 기반 스타일링 |
+| UI | React 19 | 컴포넌트 기반 화면 구성 |
+| DB/인증/실시간 | Supabase (`@supabase/supabase-js`, `@supabase/ssr`) | PostgreSQL DB, 로그인 세션 관리, 댓글·서류 실시간 반영(Realtime), 파일 저장(Storage) |
+| 서류 검증 | `pdf-parse` | 제출된 PDF에서 텍스트를 추출해 2·3단계 내용 검증에 사용 |
+| 데모 서류 생성 | `pdfkit` | 사업계획서/전담인력등록 데모 PDF를 서식 스타일로 생성 (`scripts/generate-demo-pdfs.mjs`) |
+| 빈 양식 생성 | `docx` | 자료실에서 내려받는 편집 가능한 `.docx` 양식 생성 (`scripts/generate-templates-docx.mjs`) |
+| 이메일 발송 | `resend` | 댓글/승인·반려 알림 메일, 기업 담당자 초대 메일 발송 |
+| 서버 전용 경계 | `server-only` | service_role 키 등 민감한 로직이 실수로 클라이언트 번들에 섞이는 걸 빌드 타임에 차단 |
 
-## 실행 방법
-
-### 1. 의존성 설치
-```bash
-npm install
-```
-
-### 2. 환경 변수 설정
-`.env.local` 파일에 아래 값을 설정하세요:
-```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# 센터 셀프 가입 시 입력해야 하는 비밀 코드 (서버에서만 비교, 브라우저에 노출 안 됨)
-CENTER_INVITE_CODE=아무도-못-맞출-랜덤-문자열
-
-# 기업 담당자 초대 메일 발송(auth.admin.inviteUserByEmail), 센터 가입 코드 확정 등
-# 관리자 작업에 필요 - Supabase 대시보드 Project Settings > API > service_role
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-# 댓글/승인·반려 알림 메일 발송 - resend.com 가입 후 API Keys에서 발급
-# 없으면 이메일 발송만 조용히 스킵되고 나머지 기능은 정상 동작
-RESEND_API_KEY=your_resend_api_key
-```
-
-`SUPABASE_SERVICE_ROLE_KEY`는 RLS를 완전히 우회하는 관리자 권한 키입니다. 절대 클라이언트에 노출되면 안 되며 (`NEXT_PUBLIC_` 접두사 금지), server-only 코드(`src/lib/supabase-admin.ts`)에서만 사용합니다.
-
-### 3. 데이터베이스 설정
-Supabase SQL Editor에서 아래 순서대로 실행하세요:
-
-1. `supabase-schema.sql` — 기본 테이블(companies, courses, profiles, comments)과 RLS 정책 생성
-2. `supabase-rls-policies.sql` — 비로그인(anon) 사용자의 조회를 차단 (인증된 사용자만 읽기 가능하도록 강화)
-3. `supabase-remove-default-center-role.sql` — 가입 트리거 수정: 신규 가입자는 role 없음(권한 없음)으로 시작, 초대/코드 승인 시에만 role 부여
-4. `supabase-multi-center.sql` — `centers` 테이블 신설 및 센터 다중화(회사가 특정 센터에 소속되도록 격리)
-
-모두 재실행해도 안전하게 작성되어 있습니다.
-
-### 4. 개발 서버 실행
-```bash
-npm run dev
-```
-브라우저에서 http://localhost:3000 으로 접속하세요.
+`Authentication`은 별도 라이브러리 없이 Supabase Auth(이메일/비밀번호)를 그대로 쓰고, 셀프 회원가입은 막혀 있습니다 (아래 "가입 & 권한 체계" 참고).
 
 ## 가입 & 권한 체계
 
