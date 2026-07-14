@@ -8,7 +8,6 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = path.join(__dirname, '..', 'public', 'files')
-const TEMPLATE_DIR = path.join(OUT_DIR, 'templates')
 
 const FONT_REGULAR = 'C:/Windows/Fonts/malgun.ttf'
 const FONT_BOLD = 'C:/Windows/Fonts/malgunbd.ttf'
@@ -115,26 +114,6 @@ function drawNote(doc, y, text) {
   return doc.y + 14
 }
 
-// 빈 양식용: 손으로 채워 넣을 밑줄 한 줄
-function drawBlankLine(doc, x, y, width) {
-  doc.moveTo(x, y).lineTo(x + width, y).lineWidth(0.75).stroke('#aaaaaa')
-}
-
-// 빈 양식용: drawSection과 같은 라벨 스타일이지만 텍스트 대신 채움줄(lineCount개)을 그린다
-function drawBlankSection(doc, y, index, label, lineCount = 1) {
-  doc.rect(MARGIN, y, 4, 15).fill(ACCENT)
-  doc.fillColor('#000000').font('KR-Bold').fontSize(11)
-    .text(`${index}. ${label}`, MARGIN + 10, y)
-
-  let cursorY = doc.y + 10
-  for (let i = 0; i < lineCount; i++) {
-    drawBlankLine(doc, MARGIN + 10, cursorY, CONTENT_WIDTH - 10)
-    cursorY += 20
-  }
-  doc.fillColor('#000000')
-  return cursorY + 6
-}
-
 function drawFooter(doc, pageNum) {
   // 페이지 하단 여백(margin) 안쪽에 그려야 자동 페이지 넘김이 발생하지 않는다.
   const y = doc.page.height - doc.page.margins.bottom - 18
@@ -155,27 +134,6 @@ function drawClosingSignature(doc, y, { date, companyName, representativeName })
   doc.text(`신청기업명: ${companyName}`, MARGIN, curY, { width: half })
   doc.text(`대표 성명: ${representativeName}        (인)`, MARGIN + half, curY, { width: half, align: 'right' })
   curY = doc.y + 10
-
-  doc.font('KR-Bold').fontSize(12)
-    .text('한국산업인력공단 귀중', MARGIN, curY, { width: CONTENT_WIDTH, align: 'center' })
-
-  return doc.y + 6
-}
-
-// 빈 양식용 서명란 - 값 대신 채움줄만 그린다
-function drawBlankClosingSignature(doc, y) {
-  y = ensureSpace(doc, y, 68)
-  doc.font('KR').fontSize(11)
-    .text('20        년        월        일', MARGIN, y, { width: CONTENT_WIDTH, align: 'center' })
-  let curY = doc.y + 12
-
-  const half = CONTENT_WIDTH / 2
-  doc.text('신청기업명:', MARGIN, curY, { width: 90 })
-  drawBlankLine(doc, MARGIN + 90, curY + 12, half - 90 - 15)
-  doc.text('대표 성명:', MARGIN + half, curY, { width: 90 })
-  drawBlankLine(doc, MARGIN + half + 90, curY + 12, half - 90 - 40)
-  doc.text('(인)', MARGIN + CONTENT_WIDTH - 32, curY)
-  curY += 22
 
   doc.font('KR-Bold').fontSize(12)
     .text('한국산업인력공단 귀중', MARGIN, curY, { width: CONTENT_WIDTH, align: 'center' })
@@ -240,61 +198,6 @@ function renderStaffRegistration(data) {
     companyName: data.companyName,
     representativeName: info.representativeName,
   })
-
-  drawFooter(doc, 1)
-  doc.end()
-}
-
-// 기업이 다운로드해서 작성 후 첨부할 수 있는 빈 양식 - 내용은 비워두고 서식만 제공한다.
-// 공동훈련센터는 현재 서중대학교 산학협력단 1곳뿐이라 미리 채워둔다.
-function renderBusinessPlanTemplate() {
-  const doc = newDoc('사업계획서_양식.pdf', TEMPLATE_DIR)
-
-  let y = drawFormTab(doc, '서식2', '사업계획서 (일학습병행 신청 공고 서식2 참고 양식) - 빈 양식')
-  y = drawTitle(doc, y, '사 업 계 획 서')
-
-  y = drawBlankSection(doc, y, 1, '프로그램 명')
-  y = drawBlankSection(doc, y, 2, '시행 목적', 2)
-  y = drawBlankSection(doc, y, 3, '참여 기업 (기업명 / 대표자명 / 사업자등록번호 / 업종)', 2)
-  y = drawSection(doc, y, 4, '공동훈련센터', ['서중대학교 산학협력단'])
-  y = drawBlankSection(doc, y, 5, '참여 인원', 2)
-  y = drawBlankSection(doc, y, 6, '훈련 유형')
-  y = drawBlankSection(doc, y, 7, '교육 시행 장소', 2)
-  y = drawSection(doc, y, 8, '교육 회차별 계획 요약', [])
-  y = drawTable(
-    doc,
-    y,
-    ['회차', '교육 내용', '구분'],
-    [1, 2, 3, 4, 5, 6].map((n) => [`${n}회차`, '', '']),
-    [55, 345, 95]
-  )
-
-  drawBlankClosingSignature(doc, y)
-
-  drawFooter(doc, 1)
-  doc.end()
-}
-
-function renderStaffRegistrationTemplate() {
-  const doc = newDoc('전담인력등록_양식.pdf', TEMPLATE_DIR)
-
-  let y = drawFormTab(doc, '전담서식', '전담인력 등록 증빙서 (일학습병행 신청 공고 서식 참고 양식) - 빈 양식')
-  y = drawTitle(doc, y, '전담인력 등록 증빙서')
-
-  y = drawBlankSection(doc, y, 1, '과정명')
-  y = drawBlankSection(doc, y, 2, '참여 기업')
-  y = drawSection(doc, y, 3, '전담인력 현황', [])
-  y = drawTable(
-    doc,
-    y,
-    ['구분', '성명', '직위', '담당 업무', '연락처'],
-    [['전담인력', '', '', '', '']],
-    [60, 65, 120, 140, 110]
-  )
-
-  y = drawNote(doc, y, '상기 전담인력은 본 과정 운영을 위해 지정되었음을 확인합니다.')
-
-  drawBlankClosingSignature(doc, y)
 
   drawFooter(doc, 1)
   doc.end()
@@ -445,11 +348,7 @@ if (!fs.existsSync(FONT_REGULAR) || !fs.existsSync(FONT_BOLD)) {
   process.exit(1)
 }
 
-fs.mkdirSync(TEMPLATE_DIR, { recursive: true })
-
 businessPlans.forEach(renderBusinessPlan)
 staffRegistrations.forEach(renderStaffRegistration)
-renderBusinessPlanTemplate()
-renderStaffRegistrationTemplate()
 
-console.log(`생성 완료: 사업계획서 ${businessPlans.length}건, 전담인력 등록 ${staffRegistrations.length}건, 빈 양식 2건 → ${OUT_DIR}`)
+console.log(`생성 완료: 사업계획서 ${businessPlans.length}건, 전담인력 등록 ${staffRegistrations.length}건 → ${OUT_DIR}`)

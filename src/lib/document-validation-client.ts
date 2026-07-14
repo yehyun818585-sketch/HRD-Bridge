@@ -18,10 +18,11 @@ export const STATUS_BADGE: Record<ValidationStatus, string> = {
   불일치: 'bg-amber-100 text-amber-700',
 }
 
-// 기업이 작성해서 첨부할 수 있도록 제공하는 빈 양식 (scripts/generate-demo-pdfs.mjs로 생성)
+// 기업이 다운로드해서 워드/한글로 직접 채운 뒤 PDF로 저장해 첨부할 수 있는 빈 양식
+// (scripts/generate-templates-docx.mjs로 생성 - PDF는 편집이 어려워 docx로 제공)
 export const TEMPLATE_URLS: Record<DocumentType, string> = {
-  businessPlan: '/files/templates/사업계획서_양식.pdf',
-  staffRegistration: '/files/templates/전담인력등록_양식.pdf',
+  businessPlan: '/files/templates/사업계획서_양식.docx',
+  staffRegistration: '/files/templates/전담인력등록_양식.docx',
 }
 
 // 브라우저(클라이언트 컴포넌트)에서는 PDF를 직접 파싱할 수 없으므로

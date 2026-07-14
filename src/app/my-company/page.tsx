@@ -429,6 +429,27 @@ export default function MyCompanyPage() {
         </div>
       </div>
 
+      {/* 자료실 - 빈 양식 다운로드 (워드/한글로 작성 후 PDF로 저장해서 첨부) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">자료실</h2>
+        <p className="text-xs text-gray-500 mb-3">빈 양식을 다운로드해서 작성한 뒤, PDF로 저장해서 아래 과정별 서류란에 첨부해주세요.</p>
+        <div className="flex flex-wrap gap-3">
+          {(['businessPlan', 'staffRegistration'] as DocumentType[]).map((docType) => (
+            <a
+              key={docType}
+              href={TEMPLATE_URLS[docType]}
+              download
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition"
+            >
+              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              {DOC_LABELS[docType]} 양식 (.docx)
+            </a>
+          ))}
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6">
         {/* 과정 목록 */}
         <div className="lg:col-span-1 space-y-3">
@@ -556,18 +577,19 @@ export default function MyCompanyPage() {
                             {!isValidating && result && result.status !== '확인됨' && (
                               <span className="text-xs text-gray-500 basis-full">{result.reason}</span>
                             )}
-                            <a
-                              href={TEMPLATE_URLS[docType]}
-                              download
-                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                            >
-                              양식 다운로드
-                            </a>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {fileUrl ? (
                               <>
                                 <PdfViewerModal pdfUrl={fileUrl} />
+                                {/* 공단 제출용 - 작성 완료된 실제 파일을 바로 다운로드 */}
+                                <a
+                                  href={fileUrl}
+                                  download
+                                  className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition"
+                                >
+                                  다운로드
+                                </a>
                                 {/* DB에서 업로드한 파일만 삭제 가능 (기본 파일 제외) */}
                                 {canDelete && (
                                   <button
