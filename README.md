@@ -91,6 +91,7 @@
 - **데모 서류 생성** — 실제 PDMS 서식(표 테두리, 사업자등록번호, 제출일자·서명란)을 참고해 `scripts/generate-demo-pdfs.mjs`로 생성합니다.
 </details>
 ---
+
 ```mermaid
 flowchart TD
     B["브라우저<br/>센터 · 기업"] --> FE["Next.js 16 · App Router<br/>화면 + API Route 단일 프로젝트"]
@@ -131,7 +132,8 @@ flowchart TD
     class API,PP,GEN server
     class AUTH,DB,STG,RT supa
     class RS,VC ext
-``` 
+```
+
 ## 기술 스택
  
 | 기술 | 용도 / 선택 이유 |
