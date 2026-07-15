@@ -42,6 +42,11 @@ export async function extractPdfText(source: string): Promise<string | null> {
 
 const normalize = (text: string) => text.replace(/\s+/g, ' ')
 
+// 기업명/과정명 대조 전용 - 한국어는 "데이터분석"/"데이터 분석"처럼 띄어쓰기가
+// 표기에 따라 자연스럽게 달라지므로, 공백 유무를 다른 내용으로 취급하면 안 된다.
+// 띄어쓰기를 아예 제거하고 비교해 이런 표기 차이로 인한 오탐(false 불일치)을 없앤다.
+const stripSpaces = (text: string) => text.replace(/\s+/g, '')
+
 // 필수서류 판별의 최종 진입점. 사람의 최종 판단을 대체하지 않는다 —
 // "확인됨 / 누락 / 불일치" 대조 결과만 산출하며, 승인/반려 등의 결정은 내리지 않는다.
 export async function validateDocumentContent(
@@ -80,8 +85,9 @@ export async function validateDocumentContent(
   // 2단계 대상 일치 확인: 제목만으론 문서 종류만 알 뿐, 이 문서가 실제 이 과정/기업의
   // 것이라는 보장은 없다(다른 과정·기업의 서류를 잘못 첨부해도 제목은 같음). 문서
   // 내용에 실제 기업명/과정명이 그대로 등장하는지 대조해 대상이 다른 서류를 걸러낸다.
-  const companyMatches = text.includes(normalize(companyName))
-  const courseMatches = text.includes(normalize(courseName))
+  const strippedText = stripSpaces(text)
+  const companyMatches = strippedText.includes(stripSpaces(companyName))
+  const courseMatches = strippedText.includes(stripSpaces(courseName))
 
   if (!companyMatches || !courseMatches) {
     const mismatched = [!companyMatches && '기업명', !courseMatches && '과정명'].filter(Boolean).join(', ')
