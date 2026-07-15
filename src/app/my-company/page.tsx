@@ -246,6 +246,28 @@ export default function MyCompanyPage() {
     }
   }
 
+  // 승인/반려된 과정의 서류가 바뀌면(첨부/삭제) 이전 판단은 더 이상 유효하지 않으므로
+  // 승인대기로 되돌려 센터가 다시 검토하도록 한다.
+  const resetApprovalIfNeeded = async (course: Course) => {
+    if (course.status !== 'approved' && course.status !== 'rejected') return
+
+    const { error } = await supabase
+      .from('courses')
+      .update({ status: 'pending', stage: '승인대기' })
+      .eq('id', course.id)
+
+    if (error) return
+
+    setSelectedCourse(prev => prev && prev.id === course.id ? { ...prev, status: 'pending', stage: '승인대기' } : prev)
+    setCompany(prev => {
+      if (!prev) return null
+      return {
+        ...prev,
+        courses: prev.courses.map(c => c.id === course.id ? { ...c, status: 'pending', stage: '승인대기' } : c)
+      }
+    })
+  }
+
   // 파일 첨부 핸들러
   const handleFileUpload = async (type: 'businessPlan' | 'staffRegistration') => {
     if (!selectedCourse || !user) return
@@ -308,6 +330,9 @@ export default function MyCompanyPage() {
           }
         }))
 
+        // 승인/반려된 과정에 서류를 다시 첨부하면 재검토가 필요하므로 승인대기로 되돌림
+        await resetApprovalIfNeeded(selectedCourse)
+
         // 파일 첨부 시 해당 과정의 주요이슈 자동 삭제
         if (selectedCourse.issues) {
           const { error: issueError } = await supabase
@@ -368,6 +393,9 @@ export default function MyCompanyPage() {
         }
         return updated
       })
+
+      // 승인/반려된 과정의 서류를 삭제하면 재검토가 필요하므로 승인대기로 되돌림
+      await resetApprovalIfNeeded(selectedCourse)
 
       alert(`${type === 'businessPlan' ? '사업계획서' : '전담인력 등록'} 파일이 삭제되었습니다.`)
     } catch (err) {

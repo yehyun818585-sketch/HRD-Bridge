@@ -8,11 +8,14 @@ import { notifyComment } from '@/lib/notify-client'
 interface CourseApprovalActionsProps {
   courseId: string
   courseName: string
+  status: string
 }
 
 // 센터 전용 승인/반려 액션. courses.status/stage를 실제로 변경하고,
 // 반려 시에는 사유를 댓글로 남겨 기업에 보완을 요청한다.
-export default function CourseApprovalActions({ courseId, courseName }: CourseApprovalActionsProps) {
+// 이미 승인된 과정은 더 조치할 게 없으므로 버튼을 숨긴다 - 기업이 파일을 다시
+// 첨부/삭제하면 my-company 쪽에서 status를 pending으로 되돌려 버튼이 다시 나타난다.
+export default function CourseApprovalActions({ courseId, courseName, status }: CourseApprovalActionsProps) {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -83,6 +86,14 @@ export default function CourseApprovalActions({ courseId, courseName }: CourseAp
   }
 
   if (userRole !== 'center') return null
+
+  if (status === 'approved') {
+    return (
+      <div className="p-4 bg-green-50 rounded-lg text-sm text-green-700">
+        승인 완료된 과정입니다. 추가 조치가 필요 없습니다. (기업이 서류를 다시 첨부/삭제하면 재검토 대기 상태로 자동 전환됩니다)
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 bg-gray-50 rounded-lg">

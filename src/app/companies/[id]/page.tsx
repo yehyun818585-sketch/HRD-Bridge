@@ -191,6 +191,7 @@ export default async function CompanyDetailPage({
                     <CourseApprovalActions
                       courseId={selectedCourse.id}
                       courseName={selectedCourse.name}
+                      status={selectedCourse.status}
                     />
                   </div>
                 </div>
