@@ -76,13 +76,17 @@ export async function POST(request: NextRequest) {
 
   // Supabase 기본 초대 메일(inviteUserByEmail)은 영문 템플릿에 Site URL 설정을 그대로 쓰기 때문에
   // 센터명/회사명을 넣을 수 없고 로컬 개발 중 저장된 localhost 주소가 노출되는 문제가 있었다.
-  // generateLink로 계정 생성 + 링크 발급까지만 하고, 실제 발송은 우리 Resend 템플릿으로 직접 한다.
+  // generateLink로 계정 생성 + 토큰 발급까지만 하고, 실제 발송은 우리 Resend 템플릿으로 직접 한다.
+  //
+  // action_link를 메일에 그대로 넣지 않는 이유: Gmail/보안 스캐너가 메일을 열람하기 전에
+  // 링크를 미리 방문(스캔)해 1회용 토큰을 소모시켜, 정작 사용자가 클릭하면 "otp_expired"가
+  // 뜨는 문제가 있었다. 대신 정적으로 로드되는 /auth/accept-invite 페이지로 보내고,
+  // 사용자가 버튼을 직접 눌러야만(스캐너는 클릭하지 않음) 토큰이 검증되도록 분리했다.
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
     type: 'invite',
     email,
     options: {
       data: { role: 'company', company_id: companyId },
-      redirectTo: `${request.nextUrl.origin}/auth/callback?next=/auth/set-password`,
     },
   })
 
@@ -97,13 +101,15 @@ export async function POST(request: NextRequest) {
     .single()
   const centerName = centerRow?.name || '센터'
 
+  const acceptUrl = `${request.nextUrl.origin}/auth/accept-invite?token_hash=${linkData.properties.hashed_token}`
+
   const emailResult = await sendEmail({
     to: [email],
     subject: `[일학습병행 대시보드] ${centerName}에서 ${companyName} 담당자님을 초대했습니다`,
     html: `
       <p><b>${centerName}</b>가 <b>${companyName}</b> 담당자님을 일학습병행 정보 미러링 대시보드에 초대합니다.</p>
       <p>아래 버튼을 눌러 비밀번호를 설정하고 가입을 완료해주세요.</p>
-      <p><a href="${linkData.properties.action_link}">초대 수락하고 가입하기</a></p>
+      <p><a href="${acceptUrl}">초대 수락하고 가입하기</a></p>
     `,
   })
 
