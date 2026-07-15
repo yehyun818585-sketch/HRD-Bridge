@@ -33,6 +33,9 @@ export default function MyCompanyPage() {
   const [uploadingType, setUploadingType] = useState<string | null>(null)
   // 업로드된 파일 상태 관리 (courseId -> { businessPlan?: string, staffRegistration?: string })
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, { businessPlan?: string; staffRegistration?: string }>>({})
+  const [addingCourse, setAddingCourse] = useState(false)
+  const [newCourseName, setNewCourseName] = useState('')
+  const [creatingCourse, setCreatingCourse] = useState(false)
 
   const supabase = createClient()
 
@@ -372,6 +375,31 @@ export default function MyCompanyPage() {
     }
   }
 
+  // 새 과정 추가 - 회사가 처음 시작하는 과정은 기본 시드 데이터에 없으므로,
+  // 담당자가 직접 과정명을 입력해 만들 수 있어야 서류 첨부를 시작할 수 있다.
+  const handleAddCourse = async () => {
+    if (!company || !newCourseName.trim()) return
+
+    setCreatingCourse(true)
+    const { data, error } = await supabase
+      .from('courses')
+      .insert({ company_id: company.id, name: newCourseName.trim() })
+      .select('id, name, status, stage, issues, created_at')
+      .single()
+    setCreatingCourse(false)
+
+    if (error) {
+      alert(`과정 추가에 실패했습니다: ${error.message}`)
+      return
+    }
+
+    const created = data as Course
+    setCompany((prev) => prev ? { ...prev, courses: [...prev.courses, created] } : prev)
+    setSelectedCourse(created)
+    setNewCourseName('')
+    setAddingCourse(false)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -475,6 +503,42 @@ export default function MyCompanyPage() {
               <p className="text-sm text-gray-500">{course.stage}</p>
             </button>
           ))}
+
+          {addingCourse ? (
+            <div className="p-4 rounded-lg border border-gray-200 bg-white space-y-2">
+              <input
+                type="text"
+                value={newCourseName}
+                onChange={(e) => setNewCourseName(e.target.value)}
+                placeholder="예: 클라우드 엔지니어 과정"
+                autoFocus
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAddCourse}
+                  disabled={creatingCourse || !newCourseName.trim()}
+                  className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                >
+                  {creatingCourse ? '추가 중...' : '추가'}
+                </button>
+                <button
+                  onClick={() => { setAddingCourse(false); setNewCourseName('') }}
+                  disabled={creatingCourse}
+                  className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAddingCourse(true)}
+              className="w-full text-left p-4 rounded-lg border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition"
+            >
+              + 새 과정 추가
+            </button>
+          )}
         </div>
 
         {/* 과정 상세 */}

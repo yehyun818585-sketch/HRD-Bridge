@@ -185,43 +185,54 @@ export default async function CompaniesPage() {
           </thead>
           <tbody className="divide-y divide-gray-200">
             {companies?.map((company: Company) => (
-              company.courses?.map((course, idx) => (
-                <tr key={course.id} className="hover:bg-gray-50">
-                  {idx === 0 && (
-                    <td
-                      className="px-6 py-4 font-medium text-gray-900"
-                      rowSpan={company.courses.length}
-                    >
-                      {company.name}
+              company.courses && company.courses.length > 0 ? (
+                company.courses.map((course, idx) => (
+                  <tr key={course.id} className="hover:bg-gray-50">
+                    {idx === 0 && (
+                      <td
+                        className="px-6 py-4 font-medium text-gray-900"
+                        rowSpan={company.courses.length}
+                      >
+                        {company.name}
+                      </td>
+                    )}
+                    <td className="px-6 py-4 text-gray-700">{course.name}</td>
+                    <td className="px-6 py-4 text-gray-700">{course.stage}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(course.status)}`}>
+                        {getStatusText(course.status)}
+                      </span>
                     </td>
-                  )}
-                  <td className="px-6 py-4 text-gray-700">{course.name}</td>
-                  <td className="px-6 py-4 text-gray-700">{course.stage}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(course.status)}`}>
-                      {getStatusText(course.status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    {(() => {
-                      const effectiveIssue = getEffectiveIssue(company.name, course, company.courses, uploadedFilesMap)
-                      return effectiveIssue ? (
-                        <span className="text-red-600">{effectiveIssue}</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )
-                    })()}
-                  </td>
-                  <td className="px-6 py-4">
-                    <Link
-                      href={`/companies/${company.id}?course=${course.id}`}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      상세보기
-                    </Link>
-                  </td>
+                    <td className="px-6 py-4 text-sm">
+                      {(() => {
+                        const effectiveIssue = getEffectiveIssue(company.name, course, company.courses, uploadedFilesMap)
+                        return effectiveIssue ? (
+                          <span className="text-red-600">{effectiveIssue}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )
+                      })()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Link
+                        href={`/companies/${company.id}?course=${course.id}`}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        상세보기
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr key={company.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-900">{company.name}</td>
+                  <td className="px-6 py-4 text-gray-400">-</td>
+                  <td className="px-6 py-4 text-gray-400">-</td>
+                  <td className="px-6 py-4 text-gray-400">-</td>
+                  <td className="px-6 py-4 text-gray-400">-</td>
+                  <td className="px-6 py-4 text-gray-400">-</td>
                 </tr>
-              ))
+              )
             ))}
           </tbody>
         </table>
