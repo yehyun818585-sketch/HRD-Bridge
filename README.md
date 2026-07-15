@@ -56,13 +56,16 @@
  
 ## 주요 기능 및 화면
  
-* **필수서류 3단계 검증**
-  파일명이 아닌 **문서 내용을 실제로 열어 확인**합니다. 필수 항목 누락 시 어떤 항목이 빠졌는지 지목해 보여주며, 자동 승인은 하지 않습니다.
-| 검증 결과 (확인됨) | 검증 결과 (누락) | 검증 결과 (불일치) |
-| :--- | :--- | :--- |
-|<img width="892" height="153" alt="image" src="https://github.com/user-attachments/assets/d89505ae-0a6c-4777-a7ba-394bcdfc0b45" />
-| <img width="885" height="307" alt="image" src="https://github.com/user-attachments/assets/6c678b04-0599-41ce-a78f-461fda109434" />
-| *(스크린샷 추가 예정)* |
+* **📄 필수서류 3단계 내용 검증**
+  단순한 파일명 매칭이 아닌, **실제 문서 내용을 열어 분석**합니다. 필수 항목 누락 시 어떤 부분이 빠졌는지 정확히 지목하여 화면에 표시하며, 관리자의 최종 판단을 위해 시스템이 자동 승인하지는 않습니다.
+
+| 검증 상태 | 화면 |
+| :--- | :--- |
+| **✅ 확인됨 (정상)**<br>모든 필수 항목이 정상적으로 기재되어 검증을 통과한 상태 | <img width="600" alt="검증완료" src="https://github.com/user-attachments/assets/d89505ae-0a6c-4777-a7ba-394bcdfc0b45" /> |
+| **🚨 누락 (항목 미기재)**<br>문서 내 필수 항목이 빠져 있어, 구체적으로 어떤 항목이 누락되었는지 지목하는 상태 |<img width="891" height="228" alt="image" src="https://github.com/user-attachments/assets/e7a24dbb-b7d9-4a37-9345-7b999672a70c" />|
+| **⚠️ 불일치 (정보 오류)**<br>문서에 기재된 내용이 시스템 정보와 일치하지 않는 상태 |  <img width="600" alt="누락안내" src="https://github.com/user-attachments/assets/6c678b04-0599-41ce-a78f-461fda109434" /> |
+
+
  
 * **초대·코드 기반 가입**
   센터가 기업 담당자 이메일을 입력하면 초대 메일이 발송되고, 수락 시 role·company_id가 자동 부여됩니다. 센터 가입 코드는 서버(`/api/claim-center-role`)에서만 비교되어 브라우저에 노출되지 않습니다.
