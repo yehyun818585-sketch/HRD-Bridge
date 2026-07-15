@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { sendEmail } from '@/lib/email'
 
 // 센터 담당자만 호출 가능한 기업 담당자 초대 API. 기업은 셀프 가입이 불가능하고
 // 이 경로로만 계정이 생성된다. company_id는 초대 메일의 사용자 메타데이터에 실어 보내고,
@@ -73,14 +74,38 @@ export async function POST(request: NextRequest) {
     companyId = createdCompany.id
   }
 
-  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { role: 'company', company_id: companyId },
-    redirectTo: `${request.nextUrl.origin}/auth/callback?next=/auth/set-password`,
+  // Supabase 기본 초대 메일(inviteUserByEmail)은 영문 템플릿에 Site URL 설정을 그대로 쓰기 때문에
+  // 센터명/회사명을 넣을 수 없고 로컬 개발 중 저장된 localhost 주소가 노출되는 문제가 있었다.
+  // generateLink로 계정 생성 + 링크 발급까지만 하고, 실제 발송은 우리 Resend 템플릿으로 직접 한다.
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+    type: 'invite',
+    email,
+    options: {
+      data: { role: 'company', company_id: companyId },
+      redirectTo: `${request.nextUrl.origin}/auth/callback?next=/auth/set-password`,
+    },
   })
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+  if (linkError) {
+    return NextResponse.json({ error: linkError.message }, { status: 400 })
   }
 
-  return NextResponse.json({ success: true })
+  const { data: centerRow } = await admin
+    .from('centers')
+    .select('name')
+    .eq('id', callerProfile.center_id)
+    .single()
+  const centerName = centerRow?.name || '센터'
+
+  const emailResult = await sendEmail({
+    to: [email],
+    subject: `[일학습병행 대시보드] ${centerName}에서 ${companyName} 담당자님을 초대했습니다`,
+    html: `
+      <p><b>${centerName}</b>가 <b>${companyName}</b> 담당자님을 일학습병행 정보 미러링 대시보드에 초대합니다.</p>
+      <p>아래 버튼을 눌러 비밀번호를 설정하고 가입을 완료해주세요.</p>
+      <p><a href="${linkData.properties.action_link}">초대 수락하고 가입하기</a></p>
+    `,
+  })
+
+  return NextResponse.json({ success: true, email: emailResult })
 }

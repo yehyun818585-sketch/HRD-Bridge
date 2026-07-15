@@ -33,6 +33,10 @@ export default function InviteCompanyPanel({ companies }: InviteCompanyPanelProp
 
       if (!res.ok) {
         setMessage({ type: 'error', text: data.error || '초대 발송에 실패했습니다.' })
+      } else if (data.email?.sent === false) {
+        setMessage({ type: 'error', text: `계정은 생성됐지만 메일 발송에 실패했습니다 (${data.email.reason || '알 수 없는 오류'}). 관리자에게 문의해주세요.` })
+        setEmail('')
+        setCompanyName('')
       } else {
         setMessage({ type: 'success', text: `${email}로 초대 메일을 보냈습니다.` })
         setEmail('')
