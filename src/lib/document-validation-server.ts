@@ -46,7 +46,9 @@ const normalize = (text: string) => text.replace(/\s+/g, ' ')
 // "확인됨 / 누락 / 불일치" 대조 결과만 산출하며, 승인/반려 등의 결정은 내리지 않는다.
 export async function validateDocumentContent(
   source: string | undefined,
-  docType: DocumentType
+  docType: DocumentType,
+  companyName: string,
+  courseName: string
 ): Promise<DocumentValidationResult> {
   const schema = DOCUMENT_SCHEMAS[docType]
 
@@ -86,6 +88,22 @@ export async function validateDocumentContent(
       stage: 3,
       reason: `필수 항목 누락: ${missingFields.join(', ')}`,
       missingFields,
+    }
+  }
+
+  // 3단계 대상 일치 확인: 필수 항목이 다 있어도, 그 값이 실제 이 과정/기업의 서류라는
+  // 보장은 아니다(다른 과정·기업의 서류를 잘못 첨부해도 항목 자체는 다 채워져 있으므로
+  // 위 검사만으론 "확인됨"이 나온다). 문서 텍스트에 실제 기업명/과정명이 그대로
+  // 등장하는지 대조해 다른 대상의 서류가 잘못 첨부된 경우를 걸러낸다.
+  const companyMatches = text.includes(normalize(companyName))
+  const courseMatches = text.includes(normalize(courseName))
+
+  if (!companyMatches || !courseMatches) {
+    const mismatched = [!companyMatches && '기업명', !courseMatches && '과정명'].filter(Boolean).join(', ')
+    return {
+      status: '불일치',
+      stage: 3,
+      reason: `문서 내용의 ${mismatched}이(가) 이 과정(${courseName} / ${companyName})과 일치하지 않음 - 다른 과정·기업의 서류가 첨부되었을 가능성`,
     }
   }
 

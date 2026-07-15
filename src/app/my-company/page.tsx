@@ -215,8 +215,8 @@ export default function MyCompanyPage() {
     setIsValidating(true)
 
     Promise.all([
-      fetchDocumentValidation(pdfFiles.businessPlan, 'businessPlan'),
-      fetchDocumentValidation(pdfFiles.staffRegistration, 'staffRegistration'),
+      fetchDocumentValidation(pdfFiles.businessPlan, 'businessPlan', company?.name || '', selectedCourse?.name || ''),
+      fetchDocumentValidation(pdfFiles.staffRegistration, 'staffRegistration', company?.name || '', selectedCourse?.name || ''),
     ]).then(([businessPlan, staffRegistration]) => {
       if (cancelled) return
       setValidations({ businessPlan, staffRegistration })
@@ -226,7 +226,7 @@ export default function MyCompanyPage() {
     return () => {
       cancelled = true
     }
-  }, [pdfFiles.businessPlan, pdfFiles.staffRegistration])
+  }, [pdfFiles.businessPlan, pdfFiles.staffRegistration, company?.name, selectedCourse?.name])
 
   const getStatusColor = (status: string) => {
     switch (status) {

@@ -18,7 +18,9 @@ export async function POST(request: NextRequest) {
   }
 
   const source: string | undefined = typeof body.source === 'string' ? body.source : undefined
+  const companyName = typeof body.companyName === 'string' ? body.companyName : ''
+  const courseName = typeof body.courseName === 'string' ? body.courseName : ''
 
-  const result = await validateDocumentContent(source, docType)
+  const result = await validateDocumentContent(source, docType, companyName, courseName)
   return NextResponse.json(result)
 }

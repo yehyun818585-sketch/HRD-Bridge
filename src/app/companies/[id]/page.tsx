@@ -198,6 +198,8 @@ export default async function CompanyDetailPage({
                 {/* 서류 제출 현황 및 주요이슈 (실시간 업데이트) */}
                 <CourseFilesSection
                   courseId={selectedCourse.id}
+                  companyName={typedCompany.name}
+                  courseName={selectedCourse.name}
                   hasStaffDuplication={hasStaffDuplication}
                   initialPdfFiles={pdfFiles}
                 />

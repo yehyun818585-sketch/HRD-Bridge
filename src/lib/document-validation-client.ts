@@ -29,7 +29,9 @@ export const TEMPLATE_URLS: Record<DocumentType, string> = {
 // /api/validate-document를 통해 2·3단계(문서 내용 확인, 기준 서식 대조) 결과를 받아온다.
 export async function fetchDocumentValidation(
   source: string | undefined,
-  docType: DocumentType
+  docType: DocumentType,
+  companyName: string,
+  courseName: string
 ): Promise<DocValidation> {
   if (!source) {
     return { status: '누락', reason: `${DOC_LABELS[docType]} 파일이 첨부되지 않음` }
@@ -39,7 +41,7 @@ export async function fetchDocumentValidation(
     const res = await fetch('/api/validate-document', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source, docType }),
+      body: JSON.stringify({ source, docType, companyName, courseName }),
     })
     if (!res.ok) {
       return { status: '누락', reason: '검증 요청에 실패했습니다. 다시 시도해주세요.' }

@@ -8,12 +8,16 @@ import { DOC_LABELS, STATUS_BADGE, fetchDocumentValidation, type DocValidation }
 
 interface CourseFilesSectionProps {
   courseId: string
+  companyName: string
+  courseName: string
   hasStaffDuplication?: boolean
   initialPdfFiles: { businessPlan?: string; staffRegistration?: string }
 }
 
 export default function CourseFilesSection({
   courseId,
+  companyName,
+  courseName,
   hasStaffDuplication = false,
   initialPdfFiles,
 }: CourseFilesSectionProps) {
@@ -92,8 +96,8 @@ export default function CourseFilesSection({
     const run = async () => {
       setIsValidating(true)
       const [businessPlan, staffRegistration] = await Promise.all([
-        fetchDocumentValidation(pdfFiles.businessPlan, 'businessPlan'),
-        fetchDocumentValidation(pdfFiles.staffRegistration, 'staffRegistration'),
+        fetchDocumentValidation(pdfFiles.businessPlan, 'businessPlan', companyName, courseName),
+        fetchDocumentValidation(pdfFiles.staffRegistration, 'staffRegistration', companyName, courseName),
       ])
       if (cancelled) return
       setValidations({ businessPlan, staffRegistration })
@@ -105,7 +109,7 @@ export default function CourseFilesSection({
     return () => {
       cancelled = true
     }
-  }, [pdfFiles.businessPlan, pdfFiles.staffRegistration])
+  }, [pdfFiles.businessPlan, pdfFiles.staffRegistration, companyName, courseName])
 
   // displayIssue 계산 - 문서 검증 결과(확인됨/누락/불일치) + 중복 체크를 종합한다
   const issueMessages: string[] = []
