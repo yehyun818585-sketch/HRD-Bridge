@@ -1,9 +1,9 @@
 import 'server-only'
 import { Resend } from 'resend'
 
-// 커스텀 도메인 인증 없이 바로 쓸 수 있는 Resend 기본 발신 주소.
-// 실제 서비스로 발전시킬 땐 회사 도메인으로 교체 권장.
-const FROM_ADDRESS = 'HRD-Bridge <onboarding@resend.dev>'
+// Resend에 인증된 attude.uk 도메인 사용 - 발신 주소가 이 도메인이어야
+// 회사 담당자 등 임의의 수신자에게도 실제 메일이 발송된다.
+const FROM_ADDRESS = 'HRD-Bridge <hrdbridge@attude.uk>'
 
 export interface SendEmailInput {
   to: string[]
