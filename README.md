@@ -110,44 +110,62 @@
 
 ```mermaid
 flowchart TD
-    B["브라우저<br/>센터 · 기업"] --> FE["Next.js 16 · App Router<br/>화면 + API Route 단일 프로젝트"]
-
-    subgraph SRV["서버 전용 영역 · Vercel 환경변수 + server-only"]
-        API["API Route<br/>가입 코드 검증 · service_role 사용"]
-        PP["pdf-parse<br/>PDF 텍스트 추출 → 서식 스키마 대조"]
-        GEN["docx · pdfkit<br/>양식 및 데모 서류 생성"]
-    end
-
-    FE --> API
+    U["브라우저<br/>(센터 담당자 / 기업 담당자)"]
 
     subgraph SB["Supabase"]
-        AUTH["Auth<br/>초대 · 코드 기반 가입"]
-        DB[("Postgres DB<br/>RLS로 센터·기업 데이터 격리")]
-        STG[("Storage<br/>제출 PDF 원본")]
-        RT["Realtime<br/>승인·반려·댓글 구독"]
+        direction TB
+        AUTH["Auth<br/>로그인 세션 확인"]
+        DB[("DB<br/>centers·companies·courses·<br/>course_files·comments·profiles<br/>— RLS로 행 단위 접근 통제")]
     end
 
-    API --> AUTH
-    AUTH --> DB
-    FE -->|"업로드"| STG
-    STG --> PP
-    PP -->|"확인됨 · 누락 · 불일치"| DB
-    FE <-->|"RLS 통과 쿼리"| DB
-    DB --> RT
-    RT -->|"화면 즉시 반영"| FE
-    DB --> RS["Resend<br/>초대 · 알림 메일 · fire-and-forget"]
-    GEN --> STG
+    subgraph API["서버 (Next.js API Routes)"]
+        direction TB
+        R1["/api/claim-center-role<br/>가입코드 대조<br/>(정답값은 서버 밖으로 안 나감)"]
+        R2["/api/invite-user<br/>호출자가 진짜 센터인지<br/>먼저 확인 후 초대 생성"]
+        R3["/api/validate-document<br/>2·3단계 검증 실행"]
+        R4["/api/notify-comment<br/>알림 대상 조회 +<br/>권한 재확인"]
+    end
 
-    VC["Vercel 배포"] -.- FE
+    ADMIN["관리자 클라이언트<br/>(service_role 키, 서버 전용)"]
+    FILES["public/files/<br/>PDF 실물 파일<br/>(정적 파일, Storage 아님)"]
+    RS["Resend<br/>이메일 발송"]
+
+    %% 로그인 및 일반 데이터 흐름
+    U -->|로그인| AUTH
+    U <-->|"조회·작성<br/>(RLS로 걸러짐)"| DB
+    DB -->|"변경 발생 시<br/>실시간 반영"| U
+
+    %% 센터 가입
+    U -->|"가입코드 입력"| R1
+    R1 -->|"검증 통과 시에만"| ADMIN
+    ADMIN -->|"centers 생성/합류<br/>profiles.role = center"| DB
+
+    %% 기업 초대
+    U -->|"기업 담당자 이메일 입력"| R2
+    R2 -->|"role 확인 후"| ADMIN
+    ADMIN -->|"companies 생성<br/>초대 토큰 발급"| DB
+    R2 -->|"초대 메일 발송"| RS
+
+    %% 서류 검증
+    U -->|"이 PDF 검증해줘<br/>(docType, source 경로)"| R3
+    R3 -->|"파일 읽기"| FILES
+    R3 -->|"pdf-parse로 텍스트 추출 →<br/>제목·기업명·과정명·필수항목 대조"| R3
+    R3 -->|"확인됨 / 누락 / 불일치<br/>결과만 반환"| U
+
+    %% 댓글 알림
+    U -->|"댓글 INSERT"| DB
+    U -->|"저장 직후 바로 호출<br/>(fire-and-forget)"| R4
+    R4 -->|"댓글→과정→기업→센터<br/>역참조 조회 + 권한 확인"| DB
+    R4 -->|"작성자 본인 제외하고 발송"| RS
 
     classDef client fill:#E6F1FB,stroke:#378ADD,color:#0C447C
     classDef server fill:#FAEEDA,stroke:#BA7517,color:#854F0B
     classDef supa fill:#E1F5EE,stroke:#1D9E75,color:#085041
     classDef ext fill:#EEEDFE,stroke:#534AB7,color:#3C3489
-    class B,FE client
-    class API,PP,GEN server
-    class AUTH,DB,STG,RT supa
-    class RS,VC ext
+    class U client
+    class R1,R2,R3,R4,ADMIN server
+    class AUTH,DB supa
+    class FILES,RS ext
 ```
 
 ## 기술 스택
