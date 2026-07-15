@@ -91,7 +91,47 @@
 - **데모 서류 생성** — 실제 PDMS 서식(표 테두리, 사업자등록번호, 제출일자·서명란)을 참고해 `scripts/generate-demo-pdfs.mjs`로 생성합니다.
 </details>
 ---
- 
+```mermaid
+flowchart TD
+    B["브라우저<br/>센터 · 기업"] --> FE["Next.js 16 · App Router<br/>화면 + API Route 단일 프로젝트"]
+
+    subgraph SRV["서버 전용 영역 · Vercel 환경변수 + server-only"]
+        API["API Route<br/>가입 코드 검증 · service_role 사용"]
+        PP["pdf-parse<br/>PDF 텍스트 추출 → 서식 스키마 대조"]
+        GEN["docx · pdfkit<br/>양식 및 데모 서류 생성"]
+    end
+
+    FE --> API
+
+    subgraph SB["Supabase"]
+        AUTH["Auth<br/>초대 · 코드 기반 가입"]
+        DB[("Postgres DB<br/>RLS로 센터·기업 데이터 격리")]
+        STG[("Storage<br/>제출 PDF 원본")]
+        RT["Realtime<br/>승인·반려·댓글 구독"]
+    end
+
+    API --> AUTH
+    AUTH --> DB
+    FE -->|"업로드"| STG
+    STG --> PP
+    PP -->|"확인됨 · 누락 · 불일치"| DB
+    FE <-->|"RLS 통과 쿼리"| DB
+    DB --> RT
+    RT -->|"화면 즉시 반영"| FE
+    DB --> RS["Resend<br/>초대 · 알림 메일 · fire-and-forget"]
+    GEN --> STG
+
+    VC["Vercel 배포"] -.- FE
+
+    classDef client fill:#E6F1FB,stroke:#378ADD,color:#0C447C
+    classDef server fill:#FAEEDA,stroke:#BA7517,color:#854F0B
+    classDef supa fill:#E1F5EE,stroke:#1D9E75,color:#085041
+    classDef ext fill:#EEEDFE,stroke:#534AB7,color:#3C3489
+    class B,FE client
+    class API,PP,GEN server
+    class AUTH,DB,STG,RT supa
+    class RS,VC ext
+``` 
 ## 기술 스택
  
 | 기술 | 용도 / 선택 이유 |
