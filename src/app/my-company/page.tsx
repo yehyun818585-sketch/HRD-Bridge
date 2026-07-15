@@ -460,7 +460,16 @@ export default function MyCompanyPage() {
       {/* 자료실 - 빈 양식 다운로드 (워드/한글로 작성 후 PDF로 저장해서 첨부) */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-1">자료실</h2>
-        <p className="text-xs text-gray-500 mb-3">빈 양식을 다운로드해서 작성한 뒤, PDF로 저장해서 아래 과정별 서류란에 첨부해주세요.</p>
+        <div className="flex items-start gap-2 mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+          <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.492-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <p className="text-xs text-amber-800">
+            아래 양식은 <b>.docx(워드/한글)</b> 파일입니다. 다운로드해서 내용을 작성한 뒤,
+            반드시 <b>PDF로 저장(다른 이름으로 저장 → 파일 형식: PDF)</b>해서 첨부해주세요.
+            .docx 파일은 그대로 첨부할 수 없습니다.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-3">
           {(['businessPlan', 'staffRegistration'] as DocumentType[]).map((docType) => (
             <a
