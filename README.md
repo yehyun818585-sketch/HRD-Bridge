@@ -72,11 +72,14 @@
  
 * **초대·코드 기반 가입**
   센터가 기업 담당자 이메일을 입력하면 초대 메일이 발송되고, 수락 시 role·company_id가 자동 부여됩니다. 센터 가입 코드는 서버(`/api/claim-center-role`)에서만 비교되어 브라우저에 노출되지 않습니다.
-| 센터 가입 | 인적오류(이름 오기재) 방지 | 초대 메일 발송 | 초대 메일 확인 |초대링크 수락(페이지 생성)
-| :--- | :--- | :--- |:--- |:--- |
-| <img width="1430" height="787" alt="K센터가입" src="https://github.com/user-attachments/assets/b415ec91-ab76-4f25-9b46-e8c0f11d9af2" />| <img width="751" height="597" alt="K센터가입2" src="https://github.com/user-attachments/assets/89b37e32-768a-4714-afc6-2942f7b61fb8" />| <img width="1421" height="355" alt="image" src="https://github.com/user-attachments/assets/02d865b1-3117-4a9e-84ae-10ef1aa6ea94" />
- |<img width="1137" height="400" alt="image" src="https://github.com/user-attachments/assets/a3e19868-28d5-4706-ab2c-9f6d63bc8700" />
- |<img width="622" height="308" alt="초대" src="https://github.com/user-attachments/assets/e45fbe94-64cd-46da-b7db-a1893df91a5f" />
+
+| 진행 단계 | 화면 |
+| :--- | :--- |
+| **1. 센터 가입** | <img width="600" alt="K센터가입" src="https://github.com/user-attachments/assets/b415ec91-ab76-4f25-9b46-e8c0f11d9af2" /> |
+| **2. 인적오류(이름 오기재) 방지** | <img width="600" alt="K센터가입2" src="https://github.com/user-attachments/assets/89b37e32-768a-4714-afc6-2942f7b61fb8" /> |
+| **3. 초대 메일 발송** | <img width="600" alt="image" src="https://github.com/user-attachments/assets/02d865b1-3117-4a9e-84ae-10ef1aa6ea94" /> |
+| **4. 초대 메일 확인** | <img width="600" alt="image" src="https://github.com/user-attachments/assets/a3e19868-28d5-4706-ab2c-9f6d63bc8700" /> |
+| **5. 초대링크 수락(페이지 생성)** | <img width="600" alt="초대" src="https://github.com/user-attachments/assets/e45fbe94-64cd-46da-b7db-a1893df91a5f" /> |
 
  
 * **승인/반려 워크플로우 + 실시간 미러링**
