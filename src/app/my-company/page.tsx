@@ -205,6 +205,14 @@ export default function MyCompanyPage() {
   const courseUploadedFiles = selectedCourse ? uploadedFiles[selectedCourse.id] || {} : {}
   const pdfFiles: { businessPlan?: string; staffRegistration?: string } = { ...basePdfFiles, ...courseUploadedFiles }
 
+  // 페이지를 열었을 때 현재 첨부 상태와 준비중/승인대기 값이 어긋나 있으면(시드 데이터 등)
+  // 자동으로 맞춘다. 승인완료/반려는 여기서 절대 건드리지 않는다(syncCourseStage 참고).
+  useEffect(() => {
+    if (!selectedCourse) return
+    syncCourseStage(selectedCourse, pdfFiles)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourse?.id, pdfFiles.businessPlan, pdfFiles.staffRegistration])
+
   const [validations, setValidations] = useState<Partial<Record<DocumentType, DocValidation>>>({})
   const [isValidating, setIsValidating] = useState(true)
 
@@ -246,24 +254,40 @@ export default function MyCompanyPage() {
     }
   }
 
-  // 승인/반려된 과정의 서류가 바뀌면(첨부/삭제) 이전 판단은 더 이상 유효하지 않으므로
-  // 승인대기로 되돌려 센터가 다시 검토하도록 한다.
-  const resetApprovalIfNeeded = async (course: Course) => {
-    if (course.status !== 'approved' && course.status !== 'rejected') return
+  // 준비중/승인대기/승인완료/반려 상태 기준:
+  // - 준비중: 필수서류(사업계획서+전담인력등록) 중 하나라도 미첨부
+  // - 승인대기: 둘 다 첨부됨 (내용이 확인됨/불일치/누락이든 상관없이 - 내용 문제는
+  //   "주요 이슈"로 별도 표시되고, 승인 여부 자체는 항상 센터가 최종 판단한다)
+  // - 승인완료/반려: 센터가 명시적으로 처리한 결과 - 자동으로 매겨지지 않는다
+  // force가 없으면(페이지 조회 등) 승인완료/반려는 절대 건드리지 않고 준비중↔승인대기만
+  // 실제 첨부 상태에 맞게 보정한다. force=true(파일을 실제로 첨부/삭제한 경우)일 때만
+  // 승인완료/반려도 재검토가 필요하다고 보고 규칙대로 되돌린다.
+  const syncCourseStage = async (
+    course: Course,
+    files: { businessPlan?: string; staffRegistration?: string },
+    options: { force?: boolean } = {}
+  ) => {
+    if (!options.force && (course.status === 'approved' || course.status === 'rejected')) return
+
+    const hasBoth = Boolean(files.businessPlan) && Boolean(files.staffRegistration)
+    const targetStatus = hasBoth ? 'pending' : 'draft'
+    const targetStage = hasBoth ? '승인대기' : '준비중'
+
+    if (course.status === targetStatus) return
 
     const { error } = await supabase
       .from('courses')
-      .update({ status: 'pending', stage: '승인대기' })
+      .update({ status: targetStatus, stage: targetStage })
       .eq('id', course.id)
 
     if (error) return
 
-    setSelectedCourse(prev => prev && prev.id === course.id ? { ...prev, status: 'pending', stage: '승인대기' } : prev)
+    setSelectedCourse(prev => prev && prev.id === course.id ? { ...prev, status: targetStatus, stage: targetStage } : prev)
     setCompany(prev => {
       if (!prev) return null
       return {
         ...prev,
-        courses: prev.courses.map(c => c.id === course.id ? { ...c, status: 'pending', stage: '승인대기' } : c)
+        courses: prev.courses.map(c => c.id === course.id ? { ...c, status: targetStatus, stage: targetStage } : c)
       }
     })
   }
@@ -330,8 +354,12 @@ export default function MyCompanyPage() {
           }
         }))
 
-        // 승인/반려된 과정에 서류를 다시 첨부하면 재검토가 필요하므로 승인대기로 되돌림
-        await resetApprovalIfNeeded(selectedCourse)
+        // 서류가 바뀌었으므로 준비중/승인대기/승인완료/반려 상태를 규칙대로 재계산
+        await syncCourseStage(
+          selectedCourse,
+          { ...basePdfFiles, ...courseUploadedFiles, [type]: fileUrl },
+          { force: true }
+        )
 
         // 파일 첨부 시 해당 과정의 주요이슈 자동 삭제
         if (selectedCourse.issues) {
@@ -394,8 +422,14 @@ export default function MyCompanyPage() {
         return updated
       })
 
-      // 승인/반려된 과정의 서류를 삭제하면 재검토가 필요하므로 승인대기로 되돌림
-      await resetApprovalIfNeeded(selectedCourse)
+      // 서류가 바뀌었으므로 준비중/승인대기/승인완료/반려 상태를 규칙대로 재계산
+      const remainingUploaded = { ...courseUploadedFiles }
+      delete remainingUploaded[type]
+      await syncCourseStage(
+        selectedCourse,
+        { ...basePdfFiles, ...remainingUploaded },
+        { force: true }
+      )
 
       alert(`${type === 'businessPlan' ? '사업계획서' : '전담인력 등록'} 파일이 삭제되었습니다.`)
     } catch (err) {
