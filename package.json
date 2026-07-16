@@ -31,5 +31,17 @@
     "pdfkit": "^0.19.1",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "overrides": {
+    "minimatch": "^10.2.5",
+    "picomatch": "^4.0.5",
+    "@babel/core": "^8.0.1"
+  },
+  "overrides": {
+  "minimatch": "^10.2.5",
+  "picomatch": "^4.0.5",
+  "@babel/core": "^8.0.1",
+  "postcss": "^8.5.10"
+ }
 }
+
