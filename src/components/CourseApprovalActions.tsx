@@ -56,12 +56,15 @@ export default function CourseApprovalActions({ courseId, courseName, status }: 
 
   const handleApprove = async () => {
     setLoading(true)
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('courses')
       .update({ status: 'approved', stage: '승인완료' })
       .eq('id', courseId)
+      .select()
 
-    if (!error) {
+    if (error || !data || data.length === 0) {
+      alert(`승인 처리에 실패했습니다.${error ? ` (${error.message})` : ' (권한 문제일 수 있습니다)'}`)
+    } else {
       await postComment(`[승인] ${courseName} 서류가 승인되었습니다. 아래 파일을 다운로드하여 공단에 제출해주세요.`)
       router.refresh()
     }
@@ -71,12 +74,15 @@ export default function CourseApprovalActions({ courseId, courseName, status }: 
   const handleRejectSubmit = async () => {
     if (!rejectReason.trim()) return
     setLoading(true)
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('courses')
       .update({ status: 'rejected', stage: '반려' })
       .eq('id', courseId)
+      .select()
 
-    if (!error) {
+    if (error || !data || data.length === 0) {
+      alert(`반려 처리에 실패했습니다.${error ? ` (${error.message})` : ' (권한 문제일 수 있습니다)'}`)
+    } else {
       await postComment(`[반려] ${rejectReason.trim()}`)
       router.refresh()
       setShowRejectForm(false)
