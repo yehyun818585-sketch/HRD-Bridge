@@ -135,13 +135,6 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
               return
             }
 
-            // 자신이 방금 추가한 댓글은 무시 (handleSubmit에서 이미 추가됨)
-            const currentUser = await supabase.auth.getUser()
-            if (newRecord.user_id === currentUser.data.user?.id) {
-              console.log('[CommentSection] Skipping own comment')
-              return
-            }
-
             // 새 댓글의 프로필 정보 가져오기
             const { data: profile } = await supabase
               .from('profiles')
@@ -160,7 +153,10 @@ export default function CommentSection({ courseId, courseName, hasStaffIssue, co
 
             console.log('[CommentSection] Adding new comment:', newCommentData)
 
-            setComments((prev) => [...prev, newCommentData])
+            // 이미 목록에 있으면(직접 작성해 낙관적으로 추가한 경우 등) 중복 추가하지 않음
+            setComments((prev) =>
+              prev.some((c) => c.id === newCommentData.id) ? prev : [...prev, newCommentData]
+            )
 
             // 기업 댓글인 경우, 센터 사용자에게 알림 표시
             if (profile?.role === 'company' && userRole === 'center') {
