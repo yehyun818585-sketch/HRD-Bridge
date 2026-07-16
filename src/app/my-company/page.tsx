@@ -725,6 +725,14 @@ export default function MyCompanyPage() {
                                 >
                                   다운로드
                                 </a>
+                                {/* 불일치/반려 등으로 다시 첨부해야 할 때 - 기본 파일이든 업로드된 파일이든 항상 교체 가능 */}
+                                <button
+                                  onClick={() => handleFileUpload(docType)}
+                                  disabled={uploadingType === docType}
+                                  className="px-2 py-1 text-xs bg-green-50 text-green-700 rounded hover:bg-green-100 transition disabled:opacity-50"
+                                >
+                                  {uploadingType === docType ? '업로드 중...' : '재첨부'}
+                                </button>
                                 {/* DB에서 업로드한 파일만 삭제 가능 (기본 파일 제외) */}
                                 {canDelete && (
                                   <button
